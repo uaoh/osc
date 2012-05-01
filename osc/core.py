@@ -5078,7 +5078,42 @@ def copy_pac(src_apiurl, src_project, src_package,
         http_POST(u)
         return 'Done.'
 
+def copy_prj(src_apiurl, src_project, dst_project,
+             withbinaries = False,
+             withhistory = False,
+             makeolder = False,
+             resign = False,
+             now = False,
+             prjconf = False,
+             comment = None):
+    """
+    Create a copy of a project.
 
+    Copying can only be done on the server, in a single api call.
+    """
+
+    print('Copying project...')
+    query = {'cmd': 'copy', 'oproject': src_project }
+    if withbinaries:
+        query['withbinaries'] = '1'
+    if withhistory:
+        query['withhistory'] = '1'
+    if makeolder:
+        query['makeolder'] = '1'
+    if resign:
+        query['resign'] = '1'
+    if comment:
+        query['comment'] = comment
+    if now:
+        query['nodelay'] = '1'
+    if prjconf:
+        query['prjconf'] = '1'
+
+    u = makeurl(src_apiurl, ['source', dst_project], query=query)
+    print >>sys.stderr, "copyprj ", u
+    f = http_POST(u)
+    return f.read()
+    
 def unlock_package(apiurl, prj, pac, msg):
     query = {'cmd': 'unlock', 'comment': msg}
     u = makeurl(apiurl, ['source', prj, pac], query)
