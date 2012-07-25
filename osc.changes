@@ -1,0 +1,1155 @@
+* Wed Jul 25 2012 David Greaves <david@dgreaves.com> - 0.135.1-mer1
+- New upstream 0.135.1
+- Add support for copyprj api call
+- Add --rebuild to be used for quickbuild
+- Add --chroot-only to be used for sb2 preparation
+- Source tag 0.135.1-mer1
+
+* Tue Mar 13 2012 David Greaves <david@dgreaves.com> - 0.133.1
+- Add sb2install support to osc
+- Use git packaging instead of tarball
+
+* Tue Feb 28 2012 David Greaves <david@dgreaves.com> - 0.133.1
+- Added less and diff3 to dependencies
+
+* Fri Feb 22 2012 David Greaves <david@dgreaves.com> - 0.133.1
+- Update to 0.133.1
+  remove meego patches
+
+* Thu May 05 2011 Anas Nashif <anas.nashif@intel.com> - 0.131
+- Update to 0.131
+
+* Wed Jan 19 2011 Jian-feng Ding <jian-feng.ding@intel.com> - 0.130.1
+- Update to 0.130.1
+  * Dropped the bugowner patch, which has been integrated in upstream
+
+* Wed Nov 24 2010 Anas Nashif <nashif@linux.intel.com> - 0.129
+- Support --role with requestmaintership to be able to set bugowner (bmc #10441)
+
+* Wed Nov 24 2010 Anas Nashif <nashif@linux.intel.com> - 0.129
+- Update to 0.129
+  Temporarirly disable password patch (not upstream yet)
+
+* Sun Nov 07 2010 Vivian Zhang <vivian.zhang@intel.com> - 0.128
+- Remove prefer-pkg-workaround.patch since OBS has been updated to 2.1.1
+
+* Tue Sep 14 2010 Vivian Zhang <vivian.zhang@intel.com> - 0.128
+- Add patch to support arm for --prefer-pkg option in build plugin
+- Add patch to workaround the issue in server for --prefer-pkg support
+
+* Tue Aug 10 2010 Jian-feng Ding <jian-feng.ding@intel.com> - 0.128
+- Integrate remember-http-basic-authen-header patch
+  Add patch to enhance 'osc vc' to support MeeGo changelog
+  And dropped unused --target patch
+
+* Wed Jul 21 2010 Jian-feng Ding <jian-feng.ding@intel.com> 0.128
+- Upgrade osc to 0.128 with updated MeeGo patches
+
+* Fri Jun 11 2010 Jian-feng Ding <jian-feng.ding@intel.com> 0.125.5
+- Disable 'authentication header' patch temporarily
+
+* Thu Jun 10 2010 Jian-feng Ding <jian-feng.ding@intel.com> 0.125.5
+- Add patch to remember authentication header to save time and server loading
+
+* Wed Mar 24 2010 Anas Nashif <anas.nashif@intel.com> - 0.125.5
+- Update to 0.125.5
+
+* Fri Jan 15 2010 Anas Nashif <anas.nashif@intel.com> - 0.124
+- Add some moblin specific settings
+
+* Mon Jan 04 2010 Jian-feng Ding <jian-feng.ding@intel.com> 0.124
+- Upgrade to 0.124 to work with new obs APIs
+
+* Wed Dec 30 2009 Jian-feng Ding <jian-feng.ding@intel.com> 0.118.7306S
+- Remove moblin plugsin from pkg, and use spectacle yaml
+
+* Mon Jul 20 2009 Yan Li <yan.i.li@intel.com> 0.118.7306S
+- Debian package error fix
+
+* Fri Jul 10 2009 Ding Jian-feng <jian-feng.ding@intel.com> 0.118.7306S
+- Add two new plugin to support 'mobaccept' and 'mobdecline' cmd
+  - They can accept/decline req and send mail to maillist and submitter automatically
+- Added an alias 'mobrevoke' to 'unmobsr' cmd
+- Some code cleaning
+
+* Thu Jul 09 2009 Ding Jian-feng <jian-feng.ding@intel.com> 0.118.7306S
+- Synced mobsr with git code, para of server_diff to False
+
+* Thu Jul 09 2009 Ding Jian-feng <jian-feng.ding@intel.com> 0.118.7306S
+- Fixed of mobsr, should check remote for .changes 
+
+* Mon Jul 06 2009 Ding Jian-feng <jian-feng.ding@intel.com> 0.118.7306S
+- Added new plugin to support 'unmobsr' cmd
+
+* Fri Jul 03 2009 Ding Jian-feng <jian-feng.ding@intel.com> 0.118.7306S
+- Synced the changes in osc-mobsr.py according new version
+
+* Fri May 22 2009 Anas Nashif <anas.nashif@intel.com> 0.118.7306S
+- Update to 0.117
+
+* Wed Apr 29 2009 Ding Jian-feng <jian-feng.ding@intel.com> 0.115
+- Add one plugin to support 'mobci' cmd, a wrapper of 'ci' to do
+  extra check for moblin packages before commit.
+
+* Sun Mar 29 2009 Anas Nashif <anas.nashif@intel.com> 0.115
+- Update to 0.115
+
+* Sun Feb 22 2009 Anas Nashif <anas.nashif@intel.com> 0.113
+- make default build_platform point to Trunk
+
+* Sat Feb 21 2009 Anas Nashif <anas.nashif@intel.com> 0.113
+- Adapt: Moblin:2.0 -> Trunk
+
+* Wed Feb 18 2009 Anas Nashif <anas.nashif@intel.com> 0.113
+- Update to support target
+
+* Thu Feb 05 2009 Anas Nashif <anas.nashif@intel.com> 0.113
+- Fixed mobsr
+
+-------------------------------------------------------------------
+Thu Jan 22 17:35:38 CET 2009 - poeml@suse.de
+
+- update to r6097 (version 0.113):
+  - osc diff -rX:Y: the default is to return an unified diff (to get a pretty
+    diff use the --pretty option)
+  - osc rdiff: the default is to return a pretty diff (to get an unified diff use the --unified option)
+  - osc sr show --diff: the default is to return a pretty diff (to get an unified diff use the --unified option)
+  - osc getbinaries: optionally also download source rpms
+  - osc importsrcpkg: set the url in the package meta (bnc#458083)
+  - osc wipebinaries: added --expansion option
+  - added support for format strings like "%(project)s" and "%(package)s" which
+    can be used in the build-root config option.  For example one could use a new
+    chroot for each package.
+  - osc updatepacmetafromspec: fix failure if %description is starting with newline (bnc#462869)
+  - catch OSError exceptions which might be raised by the subprocess module
+  - don't use a hardcoded path for the rpm binary otherwise it fails on
+    distributions like debian
+  - osc meta: be more verbose in case of failure (bnc#459292)
+  - osc mkpac: add info how to enable the package tracking feature (bnc#459288) 
+
+-------------------------------------------------------------------
+Fri Dec 12 11:26:56 CET 2008 - poeml@suse.de
+
+- update to r5880 (version 0.112):
+  important bugfix:
+  - osc deletepac: prevent recursive deletion of a whole project [bnc#458535]
+  - osc build: support more options: --icecream, --ccache, --with, --without
+  - osc build: --keep-pkgs also saves the src.rpm now
+  - osc build: small fix in debuginfo handling
+  - osc build: new armv7el arch for all binaries for up to ARMv7 EABI with VFP
+
+-------------------------------------------------------------------
+Fri Nov 28 20:29:58 CET 2008 - poeml@suse.de
+
+- update to r5751 (version 0.111):
+  - fix accidental truncation of .oscrc to 0 bytes
+  - fix osc's ignorance of the revision option (-r) for expanded links
+  - osc build: handle kiwi builds (local image build)
+  - osc build: cross build support
+  - osc build: support for ARMv5 EABI little endian arch added
+  - osc build: fixed detection of the build type (rpm or deb),
+    after change in the buildinfo
+  - osc build: build debuginfo packages if enabled in the
+    project/package meta (this partly fixes [bnc#421390])
+
+-------------------------------------------------------------------
+Fri Oct 24 17:28:27 CEST 2008 - poeml@suse.de
+
+- update to r5425 (version 0.110):
+  - osc build: no working copy needed anymore when building a local
+    package [bnc#431434]
+  - osc checkout: when checking out a project, and a linkerror
+    occurs for one of the packages, do a checkout in unexpanded
+    form and continue checking out the rest of the project
+    [bnc#428303]
+  - osc deletepac, osc branch: allow slash notation for the
+    project/package arguments
+  - fix deprecation warnings on Factory (which uses Python 2.6)
+  - fix to avoid (internal) stale Package objects [bnc#436932]
+
+-------------------------------------------------------------------
+Tue Sep 30 17:19:23 CEST 2008 - poeml@suse.de
+
+- update to r5219 (version 0.109):
+  With changes from Marcus_H, myself, dmueller, tpatzig:
+  - osc getbinaries: new command to download binaries directly from
+    the api server
+  - pass the --debug option to the build script which will take
+    care of creating debuginfo packages
+  - add link to plugin API to osc help output
+  - Don't try to catch rpm-python errors if rpm-python isn't installed.
+    Thus we can avoid a hard dependency on having rpm-python.
+  - added command 'rlog', to show commit logs of remote packages
+  - fixed depracation warnings with Python 2.6 [bnc#426612]
+  - fix streaming of unfinished logfiles again
+  - fixed regression of .oscrc template [bnc#427118]
+
+-------------------------------------------------------------------
+Tue Sep 16 14:17:26 CEST 2008 - poeml@suse.de
+
+- update to r5032 (version 0.108):
+  - osc submitreq: has two aliases now: "osc sr" and "osc submitrequest"
+  - osc sr create: prompt to revoke existing requests
+  - osc sr revoke: new command for to get rid of requests to projects one can't write to
+  - osc sr list: allow showing requests in a state other than "new"
+  - osc sr show: show the current state's comment
+  - osc sr log: new command to show the history of a given id
+  - osc sr: enable requests for submitting new packages
+  - osc build: implement --no-checks
+  - osc build: be less strict on the arguments, and guess what's needed. For instance:
+    * osc build PLATFORM ARCH BUILD_DESCR
+    * osc build PLATFORM (ARCH = hostarch, BUILD_DESCR guessed)
+    * osc build ARCH (PLATFORM = build_platform (config option), BUILD_DESCR guessed)
+    * osc build BUILD_DESCR (PLATFORM = build_platform (config option), ARCH = hostarch)
+    * osc build (PLATFORM = build_platform (config option), ARCH = hostarch, BUILD_DESCR guessed)
+  - osc build: download after the target architecture check
+  - osc addremove: bugfixes, --recursive option
+  - osc init: added support to initialize a project dir
+  - osc metafromspec: new alias for 'updatepacmetafromspec' which is hard to remember
+  - osc updatepacmetafromspec: also update URL
+  - osc buildlog: do not download entire log to memory
+  - new http_headers option to add arbitrary headers to HTTP requests
+  - bugfix to make osc work on Gentoo
+  - enhance/update the package and project template
+  - .netrc heritage from previous commandline client has been removed
+  - osc asks for password now, when used with -A
+
+-------------------------------------------------------------------
+Wed Jul 16 17:16:27 CEST 2008 - poeml@suse.de
+
+- update to r4461 (version 0.107):
+  - osc update / checkout: *important bugfix* don't check out a
+    working copy, or update an existing one, when a source link
+    cannot be applied [bnc#409373]
+  - osc build: the --extra-pkgs option is now a configurable
+    setting in .oscrc.  Default is "extra-pkgs = vim gdb strace"
+
+-------------------------------------------------------------------
+Fri Jul 11 12:43:00 CEST 2008 - poeml@suse.de
+
+- update to r4428 (version 0.106):
+  - osc rdiff / osc submitreq show: diff the _expanded_ sources [bnc#408267]
+  - osc submitreq list: show author's name 
+  - osc submitreq: shortcut alias 'sr' added
+
+-------------------------------------------------------------------
+Wed Jul  9 17:25:25 CEST 2008 - poeml@suse.de
+
+- update to r4401: (version 0.105):
+  - osc submitreq list:
+     - can now be called without parameters, applying to the working copy then.
+     - calling it in a project directory is also possible now.
+     - output was improved. Newest requests are listed first.
+  - osc submitreq delete: a new action which has been added
+  - osc submitreq list/create: use api URL from the working copy
+  - osc meta: editing returns the API error description instead of a plain HTTP
+    error if available
+  - osc copypac: use the correct userid when copying to another api host
+  - osc importsrcpkg: disable signature check when getting data from a rpm file
+  - osc linkpac: --revision option added.
+  - osc search: added option -i|--involved, to show in which projects/packages
+    a developer is involved
+  - osc build: double check the buildinfo for local builds. Refuse to build for
+    architectures that are not supported by the host
+  - osc buildhist: change the output into a format which better matches actual
+    RPM filenames.
+  - osc commit: give commit message tempfiles a ".diff" suffix, so syntax
+    highlighting automatically works in capable editors
+  - other bug fixes:
+    - don't expand/unexpand if the working copy has local modifications - this is
+      an ugly workaround for bnc#399247 but this way the working copy isn't screwed up
+    - work around a bug which causes packages to be cached locally under the
+      "None" architecture (and therefore causing issues when building for more
+      than one architecture via osc build).
+    - don't create _linkerror files in working copies
+    - better error handling (mostly printing more details) in a number of cases
+    - show error messages from the API also for type 500 errors
+
+-------------------------------------------------------------------
+Wed Jun 11 10:34:53 CEST 2008 - poeml@suse.de
+
+- update to r4164 (version 0.104):
+  - osc update: after update, reset the revision when updating
+    multiple package. Fixes "404: Not Found" type errors when
+    updating an entire project. [bnc#399177]
+  - more/better error messages in some error scenarios
+  - osc wipebinaries: add missing check for commandline arguments,
+    which could cause a PACKAGE argument to be ignored
+  - fixed make_diff in order to avoid errors when committing a new
+    package (created with mkpac)
+
+-------------------------------------------------------------------
+Fri Jun  6 14:05:21 CEST 2008 - poeml@suse.de
+
+- update to r4120 (version 0.103):
+  - osc submitreq create: simplify by make osc guess needed
+    parameters, if there is a working copy and it is a source link.
+  - osc submitreq create: don't stop on packages that have a devel
+    project defined, if the submit actually comes from that
+    project.
+  - osc checkout: checkout of source links is now done in expanded
+    form per default. The new option --unexpand-link can be used to
+    get the raw link file.
+  - show the API's error message for HTTP 403 (Forbidden) replies.
+
+-------------------------------------------------------------------
+Tue Jun  3 17:15:26 CEST 2008 - poeml@suse.de
+
+- update to r4089 (version 0.102)
+  - osc branch: Show the actually created branch project name, not
+    a guessed one.  Add --nodevelproject. 
+  - osc submitreq: look up the develproject of the target, and if
+    there is one, don't create the request, unless forced with
+    --nodevelproject.
+  - when -d (global, for debug) was used, save the body because it can't be read twice
+
+-------------------------------------------------------------------
+Tue May 27 12:54:26 CEST 2008 - poeml@suse.de
+
+- update to r4030:
+  - version 0.101
+  - add osc branch command, using the branch API call to branch a package to
+    home:poeml:branches:PRJ/PKG
+  - osc commit now opens $EDITOR for commit message
+  - improved error handling, when API returns HTTP status code 400 (bad request)
+  - osc status: implement -q/--quiet switch
+  - osc info: slightly more verbose
+  - osc deletepac: allow deletion of multiple packages at once
+  - make "osc meta prjconf <project> -e" work again (probably caused by r3702)
+
+-------------------------------------------------------------------
+Tue May 20 14:33:52 CEST 2008 - poeml@suse.de
+
+- update to r4002:
+  - osc maintainer: new -D/--devel-project switch
+  - osc rprjresults/rresults: small fixes
+  - facilitate correct syntax highlighting when editing metadata
+
+-------------------------------------------------------------------
+Mon May 19 17:14:45 CEST 2008 - poeml@suse.de
+
+- update to r3995:
+  - version 0.100
+  - improved error handling (babysitter.py wrapper, oscerr.py exception classes)
+    Tracebacks are mostly suppressed now. To enable them, use
+    |    -t, --traceback    print call trace in case of errors
+    or set traceback=1 in .oscrc.
+  - other new global options for debugging:
+    |    --debugger         jump into the debugger before executing anything
+    |    --post-mortem      jump into the debugger in case of errors
+    |    -d, --debug        print info useful for debugging
+  - make way for more seamless osc version updates (the .osc directory in working copies
+    will have its own versioning in the future)
+  - osc rprjresults and osc rresults: new commands to show remote build results
+  - osc build: added --baselibs and --jobs options
+  - osc copypac: added --keep-maintainers switch
+  - BUILD_DIST environment variable will be ignored (bnc#359846)
+    The following environment variables can still be used:
+    * OSC_SU_WRAPPER overrides the setting of su-wrapper.
+    * OSC_BUILD_ROOT overrides the setting of build-root.
+    * OSC_PACKAGECACHEDIR overrides the setting of packagecachedir.
+  - a few bug fixes.
+
+-------------------------------------------------------------------
+Mon Apr 21 18:45:29 CEST 2008 - poeml@suse.de
+
+- remove the patch added by Adrian (bnc#378421)
+
+-------------------------------------------------------------------
+Sat Apr 12 07:36:40 CEST 2008 - adrian@suse.de
+
+- add patch from abauer to fix cookie handling (bnc#378421)
+
+-------------------------------------------------------------------
+Wed Apr  2 16:36:40 CEST 2008 - poeml@suse.de
+
+- update to r3614:
+  - osc commit: implement committing with keeping links (to commit
+    changes to expanded links)
+  - osc copypac: make the server-side copy the default. But do a
+    client-side copy if source and target are not on the same
+    buildservice instance
+
+-------------------------------------------------------------------
+Tue Apr  1 09:43:12 CEST 2008 - poeml@suse.de
+
+- update to r3598:
+  New features:
+  - new link handling:
+    add support for handling linked packages in expanded form. They
+    can be checked out, updated (expanding or unexpanding them),
+    and built locally.
+    Missing: commit support.
+    Newly introduced options are:
+    * osc checkout: --expand-link 
+    * osc update: --expand-link and --unexpand-link 
+  - osc build: add --debuginfo switch (Thanks, Juergen!) [bnc#368524]
+  - osc req: add option -a / --add-header to inject arbitrary
+    request headers
+  - osc addremove (and others): ignore _all_ dot files (the
+    buildservice doesn't handle them) [bnc#370476]
+  - copypac: do a server-side copy (via a single api call) when
+    used with -s / --server-side. 
+  - prjresults: csv export uses ';' as default (Pavol)
+  - osc update/checkout: enable to use md5sum as revision id
+  - osc info: make it show info about expanded and non-expanded links
+  - osc submitreq:
+    - implement an 'accept' action, resulting in the respective
+      state change
+    - when requesting a submit, save the source package's revision
+      id (looking up what it currently is)
+    - give the user a way to override it, to submit an older
+      revision
+    - when using show --diff, take the actual old revision into
+      account. Thus, the diff is against the source revision of the
+      time of request creation.
+  Bug fixes:
+  - osc mkpac only works when 'do_package_tracking' is enabled
+  - do_repos() should work in a project dir too
+  - handle mmap failure on filesystems like NTFS, which may not
+    support memory mapping when mounted under Linux
+  - submitreq show: if the target package doesn't exist, a diff
+    cannot be produced.
+  - fixed username issues when creating a new package (the problem was
+    that the username for the default host was used and not the one for
+    that specific apiurl)
+  Internal changes:
+  - enhance osc.core.makeurl(). This function accepts a query
+    parameter in form of a list. The query can now also be given as a
+    dictionary, and in that case it will be automatically urlencoded.
+    The behaviour for a list is unchanged for the reason of backward
+    compatibility.
+  - add Linkinfo class to osc.core
+  - Package class: 
+    - add linkinfo when reading in package data via update_datastructs()
+    - add islink() and isexpanded() methods
+  - added 3 new methods:
+    * createPackageDir(): creates and initializes a new package dir in
+      the given project.
+    * get_apiurl_usr(): returns the username for a certain apiurl
+    * get_configParser(): returns an ConfigParser() object which can be
+      used for parsing the ~/.oscrc file
+  - new show_upstream_xsrcmd5() method which returns the xsrcmd5 (if a
+    linkinfo element exists)
+  - all necessary auth-information are available in the 'auth_dict'
+    (so there's no need to fool around with the ConfigParser...)
+  - if there are no credentials for the apisrv in use (which may be
+    specified with -A on the commandline), don't try to set up
+    config['user'] with credentials.
+
+-------------------------------------------------------------------
+Mon Mar 10 19:15:11 CET 2008 - poeml@suse.de
+
+- update to r3492:
+ - new feature: package tracking. It's not enabled by default and
+   needs to be switched on with do_package_tracking=1 in .oscrc.
+   before using. See
+   http://lists.opensuse.org/opensuse-buildservice/2008-03/msg00114.html
+   for more info.
+ - new command submitreq, to handle "submit requests" (next
+   generation build service feature). Its functionality isn't
+   complete yet. So far it can create, list and show requests.
+ - define bugowner when creating new projects or packages
+
+-------------------------------------------------------------------
+Tue Mar  4 09:47:51 CET 2008 - poeml@suse.de
+
+- update to r3403:
+  - fixes from Marcus and Michal Marek:
+  - fix importsrcpkg when $projectdir/.osc/_apiurl is an
+    alternative apiurl
+  - added optional apiurl parameter to the following methods:
+    meta_exists, make_meta_url, checkRevision if no apiurl
+    parameter is specified the global value (conf.config['apiurl'])
+    will be used. This should fix bug #361764
+  - some small apiurl fixes in the make_diff method (the
+    package_tracking branch already has this fix)
+  - added option --csv to 'osc prjresults' to output a CSV table
+  - small fixes testsuite for the testsuite
+
+-------------------------------------------------------------------
+Thu Jan 24 19:36:59 CET 2008 - poeml@suse.de
+
+- update to r3046:
+  - build:
+    - add --no-verify
+    - add --local-package to build a package which doesn't exist on the server
+    - add --alternative-project to specify a project, if the current one doesn't
+      exist on the server
+    - use api url from .osc/_apiurl [#355144]
+  - new command remotebuildlog
+  - diff: fix #347377 (diffing too many files)
+  - checkout: check for project existance beforehand
+
+-------------------------------------------------------------------
+Fri Jan 11 09:33:50 CET 2008 - adrian@suse.de
+
+- add Recommends: build > 2007.09.14
+
+-------------------------------------------------------------------
+Mon Dec 10 16:08:23 CET 2007 - poeml@suse.de
+
+- update to r2778:
+  - bugfix in build: in order to verify package signatures, run the
+    external rpm command with en_EN locale, because the output is
+    being parsed
+  - cat: simplify the code a bit; don't print header and footer lines
+
+-------------------------------------------------------------------
+Fri Nov 30 13:04:26 CET 2007 - poeml@suse.de
+
+- update to r2688:
+  - fixed bug in osc cat
+
+-------------------------------------------------------------------
+Fri Nov 30 01:50:24 CET 2007 - poeml@suse.de
+
+- update to r2685:
+  - rdiff: new command for server-side diffs between arbitrary
+    packages
+  - cat: new command to print a file on the standard output
+  - diff: reworked functionality to show newly added files, and
+    behaving more like svn when doing diff against a certain
+    revision
+  - bugfix in {link,aggregate,copy}_pac (<person> elements). Patch
+    from Michal Marek.
+  - checkout an empty project instead of doing nothing
+  - fix prjresults for newly added packages, where build status is
+    missing
+  - internal changes:
+    - copied init_project_dir() method from the
+      osc-package-tracking branch (just removed the
+      do_package_tracking stuff)
+    - changed the storedir attribut of the Package() class to an
+      absolute filename - normally this shouldn't have any impact
+      on existing methods, functionality etc.
+
+-------------------------------------------------------------------
+Tue Oct 30 12:47:13 CET 2007 - poeml@suse.de
+
+- update to r2467. Most work done by Marcus Huewe.
+  - version 0.99
+  - aggregatepac: new command, similar to linkpac. Patch from Pavol
+    Rusnak.
+  - wipebinaries: added --build-failed and --broken [#335498]
+  - deleteprj: enabled this command, as the backend now supports it
+  - maintainer:
+    - added --verbose option
+    - added functionality to add/remove users from a project/package
+  - print the list of URL to try, when in HTTP debug mode
+  - build: allow to use lbuild, a compatible replacement for build
+  - do not create dirs for non-existing packages during checkout
+    [#259711]
+
+-------------------------------------------------------------------
+Mon Sep  3 12:47:31 CEST 2007 - poeml@suse.de
+
+- update to r2075:
+  - new 'maintainer' command, to list the maintainers of a project
+    or package
+  - make osc call build with --changelog option, by default [#298436]
+  - make osc library simpler to use from external scripts, by
+    simply calling conf.get_config(), with possibility to override
+    conf file, http debugging, api server). It is no longer
+    required to set up the api url in the config dict, and call
+    conf.init_basicauth().
+  - allow to specify a different config file via the environmental
+    variable OSC_CONFIG, or via -c|--config on the commandline
+
+-------------------------------------------------------------------
+Fri Aug 17 08:18:34 CEST 2007 - poeml@suse.de
+
+- update to r2001:
+  - contributions from James Oakley and Marcus Huewe
+  - ls: add -b option to list binaries
+  - req: show error response for 404 responses
+  - core: add get_binarylist(); works per project and per package
+  - core: add get_binarylist_published(); works per project
+  - core: add get_binary_file()
+  - build: "osc build" if $BUILD_DIST is set
+
+-------------------------------------------------------------------
+Tue Aug 14 13:55:00 CEST 2007 - poeml@suse.de
+
+- update to r1974:
+  - version 0.98
+  - commit: use the documented commit method by default now
+  - build: add --changelog option to force update of the package
+    changelog from a changes file
+
+-------------------------------------------------------------------
+Thu Aug  9 18:15:53 CEST 2007 - poeml@suse.de
+
+- update to r1961:
+  - meta: remove notion of non-implemented --create switch. give
+    example for meta pkg usage
+  - search: add --repos-baseurl option
+
+-------------------------------------------------------------------
+Thu Aug  9 00:54:21 CEST 2007 - poeml@suse.de
+
+- update to r1947:
+  - commit: fixed possible "UnboundLocalError" with -m. Thanks to
+    judas_iscariote for spotting this issue, and Marcus for fixing
+    it.
+
+-------------------------------------------------------------------
+Wed Aug  8 20:49:24 CEST 2007 - poeml@suse.de
+
+- update to r1946:
+  - avoid warning/error with unsupported HTTPS_PROXY [#214983][#298378]
+  - importsrcpkg:
+    * changed default behaviour - the files will not be committed by
+      default. To commit them use the --commit switch.
+    * added --delete-old-files option switch to delete old files from
+      the server.
+    * allow to import source rpms by specifying an URL
+    * use rpm-python
+  - fix for "osc prjconf <project> -e".
+  - add Recommends: rpm-python
+
+-------------------------------------------------------------------
+Wed Jul 25 13:04:37 CEST 2007 - poeml@suse.de
+
+- update to r1884:
+  - added new importfromsrcpkg command, to import a package src.rpm
+    (we owe this to Marcus)
+  - added new req command, to issue arbitrary requests to the API
+  - append missing newline if do_commits=False [#293672]
+  - make delete_package() and delete_project() more userfriendly
+    (added trivial exception handling..)
+  - expand ~ to users home for packagecachedir in .oscrc [#293675]
+
+-------------------------------------------------------------------
+Thu Jul 19 14:28:51 CEST 2007 - poeml@suse.de
+
+- update to r1871:
+  - meta: allow for editing patterns
+  - small fixes:
+    - fix error message which osc issues if build package is too old
+    - results: result code can be empty when package has just been created
+    - fix name of 10.2 product in the template for new projects
+
+-------------------------------------------------------------------
+Wed Jul 18 15:21:48 CEST 2007 - poeml@suse.de
+
+- update to r1861:
+  - commit (using the currently documented way): 
+    - do DELETEs _before_ generating an "upload" revision with
+      PUTs. The DELETEs would be invalidated by the commit.
+    - switch to new commit mode also if the -F switch is used
+    - flush stdout, so that the progress dots are seen directly
+      when being written
+
+-------------------------------------------------------------------
+Mon Jul 16 18:30:18 CEST 2007 - poeml@suse.de
+
+- update to r1846:
+  - added initial search support (some ideas are taken from the webclient):
+     * when searching a package/project it
+       is also possible to search for the search term
+       in the <title /> and <description /> elements of
+       a package/project.
+     * show only exact matches
+  - new meta command, replacing editmeta, editprj, createprj,
+    editpac, createpac, edituser. Can either show existing meta, or
+    edit it (--edit), or upload content (--file). Fix metadata
+    change detection, which no longer relies on the timestamp of
+    the temporary file.
+  - log:
+    - renamed previous "log" command to "buildlog" (short: bl)
+    - implementing a log command to review the commit log
+  - commit:
+    - commit: implemented -m and -F option for the commit message.
+      NOTE: if -m is used, osc uses a different mode of uploading
+      files and commit them, namely the way which is currently
+      documented in the api. So far, osc was uploading each file
+      separately through the old backward compatible way. This way
+      of committing can also be forced with do_commits = 1 in
+      .oscrc.
+  - other changes:
+    - api now sends HTTP/1.1 400 Bad Request for invalid xml. Thus,
+      show the reply body because it contains helpful info.
+    - if PUT on metadata fails with a 500, and http_debug is True,
+      print out the body of the server reply
+    - improved exception handling in some places
+    - updatepacmetafromspec: read spec files in utf-8, or whatever
+      the preferred encoding is in the locale
+
+-------------------------------------------------------------------
+Wed Jul 11 11:20:24 CEST 2007 - poeml@suse.de
+
+- update to r1825:
+  - version 0.97
+  - added initial revision handling:
+    - extended "osc co prj pac" to checkout a specific revision of pac
+    - extended "osc up" to update to a specific revision
+    - extended "osc diff" to diff the working copy against a
+      specific revision on the server. NOTE: comparing two
+      server-side revisions (osc diff -r 11:12) is currently
+      not supported!
+  - addremove: ignore foo.rXX, foo.mine for files which are in 'C' state
+  - wipebinaries: allow to wipe all binaries of packages for which
+    the build is disabled
+  - updatepacmetafromspec scans for spec files automatically; also,
+    added a --specfile option.
+  - load subcommands from /var/lib/osc-plugins/ or ~/.osc-plugins/
+
+-------------------------------------------------------------------
+Fri Jun 29 16:05:45 CEST 2007 - poeml@suse.de
+
+- add /var/lib/osc-plugins to the filelist
+
+-------------------------------------------------------------------
+Fri Jun 29 14:05:00 CEST 2007 - poeml@suse.de
+
+- update to r1794:
+  - rm: don't allow to mark files as deleted which are not under
+    version control
+
+-------------------------------------------------------------------
+Thu Jun 28 16:19:07 CEST 2007 - poeml@suse.de
+
+- update to r1792:
+  - linkpac: make this osc subcommand work again: sync metadata if
+    edit_meta() is called with change_is_required=False.
+  - log: fail gracefully if logfile can't be found
+  - handle empty prjresults (e.g. when no repositories are defined)
+
+-------------------------------------------------------------------
+Tue Jun 26 15:22:08 CEST 2007 - poeml@suse.de
+
+- update to r1783:
+  - build: don't stumble over an empty list of packages when trying to verify packages
+  - ls: add verbose option to print extra information for packages
+  - for ls, co, meta, editmeta, linkpac, copypac, rebuildpac, and wipebinaries
+    (basically all the server-side commands), allow arguments "foo/bar" instead
+    of "foo bar"
+
+-------------------------------------------------------------------
+Fri Jun 22 15:23:24 CEST 2007 - poeml@suse.de
+
+- update to r1769:
+  fix return values in metafile.sync() which I broke whey I applied
+  Marcus Huewe's patch...
+
+-------------------------------------------------------------------
+Thu Jun 21 17:15:54 CEST 2007 - poeml@suse.de
+
+- update to r1763:
+  - set correct Content-Type header on PUT requests
+    (application/octet-stream). Rails 1.2 seems to be more strict
+    in this regard. Patch from Marcus Rueckert.
+  - init: make usage (and usage info) info more precise
+
+-------------------------------------------------------------------
+Thu Jun 14 16:31:30 CEST 2007 - poeml@suse.de
+
+- update to r1733:
+  New features kindly implemented by Marcus Huewe:
+  - added wipebinaries command
+  - added abortbuild command
+  - improved handling of metadata editing if the server doesn't accept it
+
+-------------------------------------------------------------------
+Thu Jun 14 10:36:07 CEST 2007 - poeml@suse.de
+
+- update to r1731:
+  - adjust for change in build.rpm, where /usr/lib/build/debsort
+    was removed.  Look for debtransform program instead in order to
+    determine if build.rpm is new enough.
+  - update cmdln.py to planned 1.0 version. The main changes are
+    related to points that were raised during employment in osc:
+      # v0.8.3
+      - Fix a bug where errors with passing an incorrect number of args to
+        functions in do_foo() implementations would be masked.
+      # v1.0.0
+      - [backward incompat] `Cmdln.main()` no longer takes an `optparser`
+        argument. Top-level option parsing has been changed so that top-level
+        options for a `Cmdln` subclass can more naturally be defined and
+        handled on the class definition. Changes:
+        - `Cmdln.main()` calls `self.get_optparser` to get an option handler.
+          Subclasses should overload this method for custom top-level options.
+        - After option parsing, but before sub-command handling, the
+          `self.postoptparse()` hook is called.
+      - Add a `version` attribute on `Cmdln` subclasses. If set, the default
+        top-level option parser will have a `--version` attribute.
+      - [backward incompat] Simplify the StopProcessing/opts.stop handling for
+        option handling in subcommands. The "opts" argument to "do_*"
+        sub-command functions will no longer have a "stop" value.
+        StopProcessing is now called StopOptionProcessing. This shouldn't
+        affect simple usage of cmdln.py.
+    - adjust osc.commandline for these changes.
+  - make startdir a module global
+  - add info about usage with the 'nosetests' test discovery tool
+  - add tests for commandline options
+  - results: remove obsolete code handling commandline arguments
+
+-------------------------------------------------------------------
+Mon May 14 12:13:00 CEST 2007 - poeml@suse.de
+
+- update to r1657:
+  - rebuildpac: fix mistyped repository parameter
+  - build: add --userootforbuild option
+
+-------------------------------------------------------------------
+Sat May 12 23:25:15 CEST 2007 - poeml@suse.de
+
+- update to r1655:
+  - build: fix bug introduced with r1652: for the buildinfo, POST
+    the specfile's content, not its name... 
+
+-------------------------------------------------------------------
+Thu May 10 16:33:57 CEST 2007 - poeml@suse.de
+
+- update to r1652:
+- build: implement -x/--extra-pkgs option (passed to backend and
+  included in buildinfo result)
+- make filling out of username in templates work again
+
+-------------------------------------------------------------------
+Tue May  8 12:22:47 CEST 2007 - poeml@suse.de
+
+- update to r1644:
+  - don't allow to delete projects, as long it is not implemented in
+    the backend
+  - use new API route for downloading binaries also in configured URLs
+  - make deletepac work again
+
+-------------------------------------------------------------------
+Sat May  5 00:02:55 CEST 2007 - poeml@suse.de
+
+- update to r1635:
+  - version 0.96
+  - following suggestions by Christian Boltz and Michal Marek, osc
+    now memorizes where a working copy was checked out from, saving
+    the api server url to .osc/_apiurl. 
+  - implement 'info' subcommand
+  - buildhistory works again
+  - copypac: implement package copy from one buildservice instance to another
+    (--to-apiurl option)
+  - build:
+    - rename --prefer-pacs option to --prefer-pkgs
+    - implement --keep-pkgs option
+    - call rpm command for preferred rpms with --nosignature --nodigest
+    - improve key import instructions after suggestion by Michael Wolf
+  - the results subcommand now handles multiple <working copy> arguments
+  - use the new api routes in all places
+
+-------------------------------------------------------------------
+Wed May  2 20:20:12 CEST 2007 - poeml@suse.de
+
+- update to r1626:
+  - build: implement --prefer-pacs option
+  - apply patch from Michael Marek, fixing all places where error
+    messages were printed to stdout instead of stderr. [#239404]
+
+-------------------------------------------------------------------
+Wed Apr 25 19:32:18 CEST 2007 - poeml@suse.de
+
+- update to r1608:
+  - version 0.95
+  - osc is now easier to work with when using alternative API servers. The
+    configured server can be overriden with -A <url> on the commandline.
+    "apisrv" in the config takes a URL now, so the variable "scheme" which was
+    needed in addition before becomes obsolete. For backward compatibility, a
+    hostname (and scheme variable) are accepted like before. Likewise, the auth
+    sections in the config take a URL now, or a hostname:port to keep old config
+    working. HTTP or HTTPS scheme is determined from the URL. Credentials must be
+    configured in .oscrc.
+  - build: use actual api server in urllist for downloading, instead of hardcoded
+    api.opensuse.org [#265211].
+  - finally, global option -H enables HTTP traffic debugging
+  - implement "rebuild all failed packages", via --failed option in rebuildpac
+    subcommand
+  - status -v shows all files, including unmodified ones
+  - suppress the legend in prjresults by default (show with -l)
+  - --version shows the program version number
+  - fix the commit subcommand's argument handling. The following works correctly
+    now: osc ci ../test/onlyinwc `pwd` fstab ../test/f2
+  - fix the download progress meter to work with small terminals [#266989]
+
+-------------------------------------------------------------------
+Fri Apr 20 02:09:11 CEST 2007 - poeml@suse.de
+
+- update to r1594:
+  - save and reuse HTTP server cookies, speeding HTTP requests up
+    about 5 times (in our iChain setup anyway...)
+  - rewrite the HTTP handling
+    - adding http_GET/POST/PUT/DELETE() functions, which dispatch to
+      http_request(), and use them everywhere
+    - removing othermethods.py 
+    - keeping urlopen(), in case it is used from externally, but have it print out
+      a "depracated" message
+    - finally, implementing a global HTTP debug mode
+    - if data to be sent is large, mmap it instead of reading at once
+  - build: remove debug print of tempfile name
+  - README: add info about dependencies of osc python module
+  - further the osc buildroot configuration example
+
+-------------------------------------------------------------------
+Fri Mar 30 00:25:24 CEST 2007 - poeml@suse.de
+
+- update to r1551:
+- update: when updating multiple packages, print each package name
+- build: 
+  - use <bdep> preinstall attribute instead of obsolete <pdep> element
+  - use <bdep> runscripts attribute and hand it over to build in the buildinfo
+- results: quote parameter in the new URL
+- prjresults: sort package names
+- run build with --norootforbuild, thereby defaulting to build as
+  abuild user
+- when updating, don't delete files with local modifications
+- add testcase
+- update osc tests for small api changes
+- use new api ['build', prj, '_result'] for prjresults subcommand
+
+-------------------------------------------------------------------
+Tue Mar 13 00:31:14 CET 2007 - poeml@suse.de
+
+- update to r1427:
+- apply fix from Christoph Thiel to use cElementTree from Python 2.5
+- let the diff subcommand return 1 if differences were found
+- make 'results' subcommand many times faster, by making only a
+  single request on _result?view=status&package=%s (new api)
+
+-------------------------------------------------------------------
+Fri Mar  9 09:32:59 CET 2007 - poeml@suse.de
+
+- build the debian package in the new way
+
+-------------------------------------------------------------------
+Tue Jan 23 19:55:01 CET 2007 - poeml@suse.de
+
+- update to r1093:
+- fix important bug, which could lead to overwriting local
+  modifications when upstream changes are merged in
+- if a merge fails, the store copy must be updated neverthelesss
+- sort output of 'status' (unknown files first, filenames
+  alphabetically)
+
+-------------------------------------------------------------------
+Tue Jan 23 18:46:17 CET 2007 - poeml@suse.de
+
+- remove unused (and possibly disturbing, because unfunctional) rpm
+  define of py_sitedir
+
+-------------------------------------------------------------------
+Fri Jan 12 17:13:00 CET 2007 - poeml@suse.de
+
+- update to r1047:
+- core: added class "metadata" (merge from Susannes
+  /branches/froh/reponator/)
+  - added command alias 'stat' for 'status', like in svn
+  - improved documentation/examples (Lars + Susanne)
+  - print usage info if 'co' is called without arguments
+
+-------------------------------------------------------------------
+Fri Oct 13 08:37:38 CEST 2006 - poeml@suse.de
+
+- set scheme=https in the default configuration, to work around
+  issue with new server
+
+-------------------------------------------------------------------
+Thu Oct 12 15:35:53 CEST 2006 - poeml@suse.de
+
+- update to 0.9 (r761): 
+- "iChain-ready" (works with API server now using iChain
+  authentication)
+- add runtime check for build.rpm version, so the rpm package
+  dependency is no longer required
+- add 'edituser' command for editing the metadata of a user
+  account. It tries to create a user if it doesn't exist yet. A new
+  command 'usermeta' replaces 'id' respectively 'userid'.
+- rewrite configuration handling. Now the API server can be set in
+  .oscrc
+- ignore '.gitignore', '.pc', '*~' (now using filename matching
+  [#208969]
+- fix 'status' to work with project directories as arguments
+- fix 'status <filename>'
+
+-------------------------------------------------------------------
+Fri Sep 29 12:05:59 CEST 2006 - poeml@suse.de
+
+- update to r753:
+- 'rebuildpac' now accepts additional repo and arch argument. Note:
+  the syntax has changed.
+- add 'prjresults' command to display aggregated build status over
+  an entire project
+- add 'deleteprj' command (the API server doesn't seem to support
+  it yet, though)
+- change 'buildhistory' to display human-readable text
+- 'log': print usage info if called with missing arguments
+- 'ci': handle upload errors
+- fix filelist for python >= 2.5
+
+-------------------------------------------------------------------
+Thu Sep 21 16:46:04 CEST 2006 - poeml@suse.de
+
+- update to r744:
+- add 'copypac' subcommand, to copy a complete package to a new package,
+  possibly cross-project
+- don't die if user tries to 'add' a file which is already versioned
+- don't die if 'addremove' encounters directories
+- urlopen(): for server return code 500, print out the reply body
+- be fair, and also mention dsc files in some help texts
+
+-------------------------------------------------------------------
+Fri Sep 15 18:54:56 CEST 2006 - poeml@suse.de
+
+- update to r735:
+- build: use configuration from *local* specfile (e.g. BuildRequires)
+- build: let envvars OSC_SU_WRAPPER and OSC_BUILD_ROOT override config
+- build: allow 'dynamical' build-root setting by using %(repo)s and %(arch)s
+- add 'createpac/editpac' and 'createprj/editprj' subcommands which
+  are similar to 'editmeta' but should be more logical to find
+- added 'deletepac' subcommand
+- added 'buildhistory' subcommand (formerly 'history'). This only
+  gives out raw xml at this time
+- added ".git" to the excluded files
+
+-------------------------------------------------------------------
+Mon Aug  7 12:49:30 CEST 2006 - poeml@suse.de
+
+- update to svn r635:
+- added 'linkpac' subcommand
+- adapt to API changes
+
+-------------------------------------------------------------------
+Thu Jul 20 16:24:19 CEST 2006 - poeml@suse.de
+
+- fixed issue with uploading files when an intercepting web proxy
+  was in between osc and the api server
+- fixed creation of new packages/projects
+
+-------------------------------------------------------------------
+Mon Jul 17 15:55:57 CEST 2006 - poeml@suse.de
+
+- update to 0.7 (r599)
+- initial support for local builds (subcommand 'build')
+- new subcommands buildconfig, buildinfo, repos
+- better error handling
+
+-------------------------------------------------------------------
+Mon Jun 26 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to svn r534
+- fix 'rebuildpac' command to not show raw xml
+- editmeta:
+  - add examples for <disable> tags to the package template
+  - add examples for build targets to the project template
+- fix updatepacmetafromspec to cope with subpackages during parsing
+- code cleanup
+- remove requirement on pyxml package
+
+-------------------------------------------------------------------
+Thu Jun 22 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to svn r528:
+- add support for streaming build log (thanks to Christoph Thiel)
+- don't try to merge binary files
+- set mtime on files that have been fetched during merge
+
+-------------------------------------------------------------------
+Thu Jun 08 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to svn r481:
+- fix handling of filenames with '+' signs [#153725, #181593]
+- before committing, make sure that the working copy is up to date
+- don't diff binary files
+- add 'rebuildpac' command, which triggers a rebuild for all
+  repositories/architectures of the package
+- fix merge on 'update', if osc is called from another directory
+- don't fail on 'resolve' when the working copy is in a newer rev already
+- add 'commit' as command alias for 'ci/checkin'
+
+-------------------------------------------------------------------
+Tue Jun 06 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to svn r469:
+- work around ruby on rails issue, which swallows '+' signs in filenames in PUT
+  requests [#153725, 181593]
+- before committing, make sure that the working copy is up to date (added
+  show_rev() function)
+- add 'commit' as subcommand alias for 'ci/checkin'
+
+-------------------------------------------------------------------
+Sat Jun 03 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to svn r466:
+- add 'repourls' subcommand
+- display reason for new build status is 'broken'
+- add a tentative 'updatepacmetafromspec' subcommand, which takes package
+  metadata from a specfile
+- handle some error conditions
+- fix the profiling wrapper script
+- make 'resolved' more robust
+- set a User-agent
+
+-------------------------------------------------------------------
+Tue May 30 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to 0.6:
+- diff bugfix: sometimes displayed diff against obsolete files
+- update bugfixes: fix update of working copy when adding a file from upstream
+  which is missing locally; fix update in directory with unmodified files:
+  don't try to merge if upstream file wasn't changed at all
+- add: make it faster
+
+-------------------------------------------------------------------
+Tue May 23 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to 0.5:
+- help :-)
+- fix status letter for files merged on update (in analogy to svn , it is
+  either G or U)
+- if an old _files listing without any metadata is found, don't bother the user
+  with it
+- make all subcommands properly importable functions
+- bug in 'resolved' command fixed, which wouldn't clear the conflict state of a file
+- fix update in directory with unmodified files: don't try to merge if upstream
+  file wasn't changed at all
+
+-------------------------------------------------------------------
+Mon May 22 00:00:00 CEST 2006 - poeml@suse.de
+
+- don't fail on undeleting non-existing _to_be_deleted file
+
+-------------------------------------------------------------------
+Mon May 22 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to 0.4:
+- allow 'up' inside a project directory (will automatically pull in all new
+  packages). (For past checkouts, you may need to put the project name into
+  $prjdir/.osc/_project yourself).
+- checkout: preserve mtimes
+- add diff3 merge support. Locally modified files are merged with upstream changes
+  if possible, and go into Conflict state if that fails.
+- add 'resolved' command to be used after manual merging.
+
+-------------------------------------------------------------------
+Fri May 19 00:00:00 CEST 2006 - poeml@suse.de
+
+- update to 0.3:
+- use the new file metadata, which provides checksum, size and mtime
+- faster 'status', 'update', 'diff'
+- improve argument handling, now e.g. 'osc up *' is possible
+- on first usage, ask for username and password and store them in .oscrc
+  (.netrc can still be used)
+
+-------------------------------------------------------------------
+Mon May 15 00:00:00 CEST 2006 - poeml@suse.de
+
+- this package is not noarch
+
+-------------------------------------------------------------------
+Fri May 12 00:00:00 CEST 2006 - poeml@suse.de
+
+- don't use --record-rpm option on setup.py, only SUSE has it
+- define py_sitelib macro
+
+-------------------------------------------------------------------
+Wed May 10 00:00:00 CEST 2006 - poeml@suse.de
+
+- created package (version 0.2)
+
