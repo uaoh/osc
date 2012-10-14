@@ -7427,7 +7427,7 @@ Please submit there instead, or use --nodevelproject to force direct submission.
                     continue
                 try:
                     exec open(os.path.join(plugin_dir, extfile))
-                except SyntaxError, e:
+                except Exception as e:
                     if (os.environ.get('OSC_PLUGIN_FAIL_IGNORE')):
                         print >>sys.stderr, "%s: %s\n" % (plugin_dir, e)
                     else:
