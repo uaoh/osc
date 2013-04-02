@@ -1,3 +1,7 @@
+* Tue Apr 2013 David Greaves <david@dgreaves.com> - 0.135.1-mer2
+- Trap any kind of exception during plugin parsing (eg IOError for a dangling symlink)
+- Add architecture and scheduler maps
+
 * Wed Jul 25 2012 David Greaves <david@dgreaves.com> - 0.135.1-mer1
 - New upstream 0.135.1
 - Add support for copyprj api call
