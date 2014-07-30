@@ -1,7 +1,7 @@
 Name: osc
 Summary: OpenSUSE Build Service Commander
-Version: 0.135.1
-Release: mer2
+Version: 0.146.0
+Release: 1
 Group: Development/Tools/Other
 License: GPL v2 or later
 URL: http://www.gitorious.org/opensuse/osc
@@ -15,6 +15,7 @@ Patches:
   - 0005-Add-support-for-rebuild-and-chroot-only-in-build.patch
   - 0006-Add-architecture-and-scheduler-maps.patch
   - 0007-Trap-any-kind-of-exception-during-plugin-parsing-eg-.patch
+  - 0008-Fixup-old-style-print-statements.patch
 Description: |
   Commandline client for the openSUSE Build Service.
 
