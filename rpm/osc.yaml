@@ -1,0 +1,30 @@
+Name: osc
+Summary: OpenSUSE Build Service Commander
+Version: 0.146.0
+Release: 1
+Group: Development/Tools/Other
+License: GPL v2 or later
+URL: http://www.gitorious.org/opensuse/osc
+Sources:
+  - osc-%{version}.tar.bz2
+Description: |
+  Commandline client for the openSUSE Build Service.
+
+  See http://en.opensuse.org/Build_Service/CLI , as well as
+  http://en.opensuse.org/Build_Service_Tutorial for a general
+  introduction.
+Requires:
+  - python-urlgrabber
+  - m2crypto > 0.19
+  - /usr/bin/less
+  - /usr/bin/diff3
+PkgBR:
+  - python-devel
+  - python-urlgrabber
+  - m2crypto
+Configure: none
+Builder: python
+BuildArch: noarch
+Recommends:
+  - build > 2010.11.24
+SetupOptions: -q
