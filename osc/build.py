@@ -53,20 +53,20 @@ qemu_can_build = [ 'armv4l', 'armv5el', 'armv5l', 'armv6l', 'armv7l', 'armv6el',
         ]
 
 can_also_build = {
-             'aarch64':['aarch64'], # only needed due to used heuristics in build parameter evaluation
-             'armv6l' :[                                         'armv4l', 'armv5l', 'armv6l', 'armv5el', 'armv6el'                       ],
-             'armv7l' :[                                         'armv4l', 'armv5l', 'armv6l', 'armv7l', 'armv5el', 'armv6el', 'armv7el'            ],
-             'armv5el':[                                         'armv4l', 'armv5l', 'armv5el'                                  ], # not existing arch, just for compatibility
-             'armv6el':[                                         'armv4l', 'armv5l', 'armv6l', 'armv5el', 'armv6el'                       ], # not existing arch, just for compatibility
-             'armv6hl':[                                         'armv4l', 'armv5l', 'armv6l', 'armv5el', 'armv6el'                       ],
-             'armv7el':[                                         'armv4l', 'armv5l', 'armv6l', 'armv7l', 'armv5el', 'armv6el', 'armv7el'            ], # not existing arch, just for compatibility
-             'armv7hl':[                        'armv7hl'                                                             ], # not existing arch, just for compatibility
-             'armv8el':[                                         'armv4l', 'armv5el', 'armv6el', 'armv7el', 'armv8el' ], # not existing arch, just for compatibility
-             'armv8l' :[                                         'armv4l', 'armv5el', 'armv6el', 'armv7el', 'armv8el' ], # not existing arch, just for compatibility
-             'armv5tel':[                                        'armv4l', 'armv5el',                                 'armv5tel' ], 
+             'aarch64': ['aarch64'], # only needed due to used heuristics in build parameter evaluation
+             'armv6l': [                                         'armv4l', 'armv5l', 'armv6l', 'armv5el', 'armv6el'                       ],
+             'armv7l': [                                         'armv4l', 'armv5l', 'armv6l', 'armv7l', 'armv5el', 'armv6el', 'armv7el'            ],
+             'armv5el': [                                         'armv4l', 'armv5l', 'armv5el'                                  ], # not existing arch, just for compatibility
+             'armv6el': [                                         'armv4l', 'armv5l', 'armv6l', 'armv5el', 'armv6el'                       ], # not existing arch, just for compatibility
+             'armv6hl': [                                         'armv4l', 'armv5l', 'armv6l', 'armv5el', 'armv6el'                       ],
+             'armv7el': [                                         'armv4l', 'armv5l', 'armv6l', 'armv7l', 'armv5el', 'armv6el', 'armv7el'            ], # not existing arch, just for compatibility
+             'armv7hl': [                        'armv7hl'                                                             ], # not existing arch, just for compatibility
+             'armv8el': [                                         'armv4l', 'armv5el', 'armv6el', 'armv7el', 'armv8el' ], # not existing arch, just for compatibility
+             'armv8l': [                                         'armv4l', 'armv5el', 'armv6el', 'armv7el', 'armv8el' ], # not existing arch, just for compatibility
+             'armv5tel': [                                        'armv4l', 'armv5el',                                 'armv5tel' ],
              's390x':  ['s390' ],
              'ppc64':  [                        'ppc', 'ppc64', 'ppc64p7', 'ppc64le' ],
-             'ppc64le':[ 'ppc64le' ],
+             'ppc64le': [ 'ppc64le' ],
              'i586':   [                'i386' ],
              'i686':   [        'i586', 'i386' ],
              'x86_64': ['i686', 'i586', 'i386' ],
@@ -116,6 +116,8 @@ class Buildinfo:
             self.pacsuffix = 'deb'
         if self.buildtype == 'arch':
             self.pacsuffix = 'arch'
+        if self.buildtype == 'livebuild':
+            self.pacsuffix = 'deb'
 
         self.buildarch = root.find('arch').text
         if root.find('hostarch') != None:
@@ -178,7 +180,7 @@ class Pac:
 
         self.mp = {}
         for i in ['binary', 'package',
-                  'epoch', 'version', 'release',
+                  'epoch', 'version', 'release', 'hdrmd5',
                   'project', 'repository',
                   'preinstall', 'vminstall', 'noinstall', 'installonly', 'runscripts',
                   'sb2install',
@@ -256,32 +258,38 @@ class Pac:
 
 
 
-def get_built_files(pacdir, pactype):
-    if pactype == 'rpm':
+def get_built_files(pacdir, buildtype):
+    if buildtype == 'spec':
         b_built = subprocess.Popen(['find', os.path.join(pacdir, 'RPMS'),
                                     '-name', '*.rpm'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
         s_built = subprocess.Popen(['find', os.path.join(pacdir, 'SRPMS'),
                                     '-name', '*.rpm'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
-    elif pactype == 'kiwi':
+    elif buildtype == 'kiwi':
         b_built = subprocess.Popen(['find', os.path.join(pacdir, 'KIWI'),
                                     '-type', 'f'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
-    elif pactype == 'deb':
+        s_built = ''
+    elif buildtype == 'dsc':
         b_built = subprocess.Popen(['find', os.path.join(pacdir, 'DEBS'),
                                     '-name', '*.deb'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
         s_built = subprocess.Popen(['find', os.path.join(pacdir, 'SOURCES.DEB'),
                                     '-type', 'f'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
-    elif pactype == 'arch':
+    elif buildtype == 'arch':
         b_built = subprocess.Popen(['find', os.path.join(pacdir, 'ARCHPKGS'),
                                     '-name', '*.pkg.tar*'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
         s_built = ''
+    elif buildtype == 'livebuild':
+        b_built = subprocess.Popen(['find', os.path.join(pacdir, 'OTHER'),
+                                    '-name', '*.iso*'],
+                                   stdout=subprocess.PIPE).stdout.read().strip()
+        s_built = ''
     else:
-        print('WARNING: Unknown package type \'%s\'.' % pactype, file=sys.stderr)
+        print('WARNING: Unknown package type \'%s\'.' % buildtype, file=sys.stderr)
         b_built = ''
         s_built = ''
     return s_built, b_built
@@ -311,9 +319,9 @@ def get_repo(path):
 
     return repositoryDirectory
 
-def get_prefer_pkgs(dirs, wanted_arch, type):
+def get_prefer_pkgs(dirs, wanted_arch, type, cpio):
     import glob
-    from .util import repodata, packagequery, cpio
+    from .util import repodata, packagequery
     paths = []
     repositories = []
 
@@ -340,7 +348,9 @@ def get_prefer_pkgs(dirs, wanted_arch, type):
             packageQueries.add(packageQuery)
 
     for path in paths:
-        if path.endswith('src.rpm'):
+        if path.endswith('.src.rpm') or path.endswith('.nosrc.rpm'):
+            continue
+        if path.endswith('.patch.rpm') or path.endswith('.delta.rpm'):
             continue
         if path.find('-debuginfo-') > 0:
             continue
@@ -351,21 +361,27 @@ def get_prefer_pkgs(dirs, wanted_arch, type):
                        for name, packageQuery in packageQueries.items())
 
     depfile = create_deps(packageQueries.values())
-    cpio = cpio.CpioWrite()
     cpio.add('deps', '\n'.join(depfile))
-    return prefer_pkgs, cpio
+    return prefer_pkgs
 
 
 def create_deps(pkgqs):
     """
-    creates a list of requires/provides which corresponds to build's internal
+    creates a list of dependencies which corresponds to build's internal
     dependency file format
     """
     depfile = []
     for p in pkgqs:
         id = '%s.%s-0/0/0: ' % (p.name(), p.arch())
-        depfile.append('R:%s%s' % (id, ' '.join(p.requires())))
         depfile.append('P:%s%s' % (id, ' '.join(p.provides())))
+        depfile.append('R:%s%s' % (id, ' '.join(p.requires())))
+        d = p.conflicts()
+        if d:
+            depfile.append('C:%s%s' % (id, ' '.join(d)))
+        d = p.obsoletes()
+        if d:
+            depfile.append('O:%s%s' % (id, ' '.join(d)))
+        depfile.append('I:%s%s-%s 0-%s' % (id, p.name(), p.evr(), p.arch()))
     return depfile
 
 
@@ -381,7 +397,7 @@ def check_trusted_projects(apiurl, projects):
         if not prj in trusted:
             print("\nThe build root needs packages from project '%s'." % prj)
             print("Note that malicious packages can compromise the build result or even your system.")
-            r = raw_input(trustprompt % { 'project':prj })
+            r = raw_input(trustprompt % { 'project': prj })
             if r == '1':
                 print("adding '%s' to ~/.oscrc: ['%s']['trusted_prj']" % (prj, apiurl))
                 trusted.append(prj)
@@ -408,9 +424,9 @@ def main(apiurl, opts, argv):
     build_type = os.path.splitext(build_descr)[1][1:]
     if os.path.basename(build_descr) == 'PKGBUILD':
         build_type = 'arch'
-    if build_type not in ['spec', 'dsc', 'kiwi', 'arch']:
+    if build_type not in ['spec', 'dsc', 'kiwi', 'arch', 'livebuild']:
         raise oscerr.WrongArgs(
-                'Unknown build type: \'%s\'. Build description should end in .spec, .dsc or .kiwi.' \
+                'Unknown build type: \'%s\'. Build description should end in .spec, .dsc, .kiwi or .livebuild.' \
                         % build_type)
     if not os.path.isfile(build_descr):
         raise oscerr.WrongArgs('Error: build description file named \'%s\' does not exist.' % build_descr)
@@ -495,6 +511,7 @@ def main(apiurl, opts, argv):
     if opts.shell:
         buildargs.append("--shell")
 
+    orig_build_root = config['build-root']
     # make it possible to override configuration of the rc file
     for var in ['OSC_PACKAGECACHEDIR', 'OSC_SU_WRAPPER', 'OSC_BUILD_ROOT']:
         val = os.getenv(var)
@@ -516,11 +533,15 @@ def main(apiurl, opts, argv):
             pacname = os.path.splitext(build_descr)[0]
     apihost = urlsplit(apiurl)[1]
     if not build_root:
+        build_root = config['build-root']
+        if build_root == orig_build_root:
+            # ENV var was not set
+            build_root = config['api_host_options'][apiurl].get('build-root', build_root)
         try:
-            build_root = config['build-root'] % {'repo': repo, 'arch': arch,
+            build_root = build_root % {'repo': repo, 'arch': arch,
                          'project': prj, 'package': pacname, 'apihost': apihost}
         except:
-            build_root = config['build-root']
+            pass
 
     cache_dir = config['packagecachedir'] % {'apihost': apihost}
 
@@ -553,11 +574,31 @@ def main(apiurl, opts, argv):
             s += "%%define %s\n" % i
         build_descr_data = s + build_descr_data
 
+    cpiodata = None
+    buildenvfile = os.path.join(os.path.dirname(build_descr), "_buildenv." + repo + "." + arch)
+    if not os.path.isfile(buildenvfile):
+        buildenvfile = os.path.join(os.path.dirname(build_descr), "_buildenv")
+        if not os.path.isfile(buildenvfile):
+            buildenvfile = None
+    if buildenvfile:
+        print('Using buildenv file: %s' % os.path.basename(buildenvfile))
+        from .util import cpio
+        if not cpiodata:
+            cpiodata = cpio.CpioWrite()
+
     if opts.prefer_pkgs:
         print('Scanning the following dirs for local packages: %s' % ', '.join(opts.prefer_pkgs))
-        prefer_pkgs, cpio = get_prefer_pkgs(opts.prefer_pkgs, arch, build_type)
-        cpio.add(os.path.basename(build_descr), build_descr_data)
-        build_descr_data = cpio.get()
+        from .util import cpio
+        if not cpiodata:
+            cpiodata = cpio.CpioWrite()
+        prefer_pkgs = get_prefer_pkgs(opts.prefer_pkgs, arch, build_type, cpiodata)
+
+    if cpiodata:
+        cpiodata.add(os.path.basename(build_descr), build_descr_data)
+        # buildenv must come last for compatibility reasons...
+        if buildenvfile:
+            cpiodata.add("buildenv", open(buildenvfile).read())
+        build_descr_data = cpiodata.get()
 
     # special handling for overlay and rsync-src/dest
     specialcmdopts = []
@@ -636,8 +677,8 @@ def main(apiurl, opts, argv):
                 pkg_meta_e = None
                 try:
                     # take care, not to run into double trouble.
-                    pkg_meta_e = meta_exists(metatype='pkg', path_args=(quote_plus(prj), 
-                                        quote_plus(pac)), template_args=None, create_new=False, 
+                    pkg_meta_e = meta_exists(metatype='pkg', path_args=(quote_plus(prj),
+                                        quote_plus(pac)), template_args=None, create_new=False,
                                         apiurl=apiurl)
                 except:
                     pass
@@ -760,8 +801,9 @@ def main(apiurl, opts, argv):
                     """ temporary directory that removes itself"""
                     def __init__(self, *args, **kwargs):
                         self.name = mkdtemp(*args, **kwargs)
+                    _rmtree = staticmethod(shutil.rmtree)
                     def cleanup(self):
-                        shutil.rmtree(self.name)
+                        self._rmtree(self.name)
                     def __del__(self):
                         self.cleanup()
                     def __exit__(self):
@@ -875,7 +917,7 @@ def main(apiurl, opts, argv):
                    if not m:
                        # short path without obs instance name
                        m = re.match(r"obs://([^/]+)/(.+)", xml.find('source').get('path'))
-                   project=m.group(1).replace(":",":/")
+                   project=m.group(1).replace(":", ":/")
                    repo=m.group(2)
                    buildargs.append('--kiwi-parameter')
                    buildargs.append('--add-repo')
@@ -904,6 +946,17 @@ def main(apiurl, opts, argv):
             print('WARNING: deb packages get not verified, they can compromise your system !')
     else:
         print('WARNING: unknown packages get not verified, they can compromise your system !')
+
+    for i in bi.deps:
+        if i.hdrmd5:
+            from .util import packagequery
+            hdrmd5 = packagequery.PackageQuery.queryhdrmd5(i.fullfilename)
+            if not hdrmd5:
+                print("Error: cannot get hdrmd5 for %s" % i.fullfilename)
+                sys.exit(1)
+            if hdrmd5 != i.hdrmd5:
+                print("Error: hdrmd5 mismatch for %s: %s != %s" % (i.fullfilename, hdrmd5, i.hdrmd5))
+                sys.exit(1)
 
     print('Writing build configuration')
 
@@ -955,6 +1008,11 @@ def main(apiurl, opts, argv):
                 if os.access(build_root, os.W_OK) and os.access('/dev/kvm', os.W_OK):
                     # so let's hope there's also an fstab entry
                     need_root = False
+                if config['build-kernel']:
+                    vm_options += [ '--vm-kernel=' + config['build-kernel'] ]
+                if config['build-initrd']:
+                    vm_options += [ '--vm-initrd=' + config['build-initrd'] ]
+
             build_root += '/.mount'
 
         if config['build-memory']:
@@ -1010,7 +1068,7 @@ def main(apiurl, opts, argv):
         pacdir = os.path.join(build_root, pacdir)
 
     if os.path.exists(pacdir):
-        (s_built, b_built) = get_built_files(pacdir, bi.pacsuffix)
+        (s_built, b_built) = get_built_files(pacdir, bi.buildtype)
 
         print()
         if s_built: print(s_built)

@@ -15,7 +15,7 @@ class PackageQueries(dict):
     """
 
     # map debian arches to common obs arches
-    architectureMap = {'i386': ['i586', 'i686'], 'amd64': ['x86_64']}
+    architectureMap = {'i386': ['i586', 'i686'], 'amd64': ['x86_64'], 'ppc64el': ['ppc64le']}
 
     # map rpm arches to mer obs scheduler arches
     architectureMap.update({'armv7hl': ['armv8el'], 'armv7tnhl': ['armv8el'], 
@@ -81,6 +81,12 @@ class PackageQuery:
     def requires(self):
         raise NotImplementedError
 
+    def conflicts(self):
+        raise NotImplementedError
+
+    def obsoletes(self):
+        raise NotImplementedError
+
     def gettag(self):
         raise NotImplementedError
 
@@ -89,6 +95,13 @@ class PackageQuery:
 
     def canonname(self):
         raise NotImplementedError
+
+    def evr(self):
+        evr = self.version() + "-" + self.release()
+        epoch = self.epoch()
+        if epoch is not None and epoch != 0:
+            evr = epoch + ":" + evr 
+        return evr 
 
     @staticmethod
     def query(filename, all_tags=False, extra_rpmtags=(), extra_debtags=(), self_provides=True):
@@ -116,6 +129,17 @@ class PackageQuery:
         pkgquery.read(all_tags, self_provides, *extra_tags)
         f.close()
         return pkgquery
+
+    @staticmethod
+    def queryhdrmd5(filename):
+        f = open(filename, 'rb')
+        magic = f.read(7)
+        f.seek(0)
+        if magic[:4] == '\xed\xab\xee\xdb':
+            from . import rpmquery
+            f.close()
+            return rpmquery.RpmQuery.queryhdrmd5(filename)
+        return None
 
 if __name__ == '__main__':
     import sys

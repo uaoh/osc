@@ -5,7 +5,7 @@
 
 from __future__ import print_function
 
-__version__ = '0.145git'
+__version__ = '0.151'
 
 # __store_version__ is to be incremented when the format of the working copy
 # "store" changes in an incompatible way. Please add any needed migration
@@ -273,18 +273,22 @@ class Serviceinfo:
 
         for service in services:
             name = service.get('name')
+            if len(name) < 3 or '/' in name:
+                raise oscerr.APIError("invalid service name")
             mode = service.get('mode', None)
             data = { 'name' : name, 'mode' : '' }
             if mode:
                 data['mode'] = mode
             try:
+                command = [ name ]
                 for param in service.findall('param'):
                     option = param.get('name', None)
                     value = ""
                     if param.text:
                         value = param.text
-                    name += " --" + option + " '" + value + "'"
-                data['command'] = name
+                    command.append("--"+option)
+                    command.append(value)
+                data['command'] = command
                 self.services.append(data)
             except:
                 msg = 'invalid service format:\n%s' % ET.tostring(serviceinfo_node, encoding=ET_ENCODING)
@@ -335,6 +339,12 @@ class Serviceinfo:
         r.append( s )
         return r
 
+    def addSetVersion(self, serviceinfo_node):
+        r = serviceinfo_node
+        s = ET.Element( "service", name="set_version" )
+        r.append( s )
+        return r
+
     def addGitUrl(self, serviceinfo_node, url_string):
         r = serviceinfo_node
         s = ET.Element( "service", name="tar_scm" )
@@ -347,7 +357,7 @@ class Serviceinfo:
         r = serviceinfo_node
         s = ET.Element( "service", name="recompress" )
         ET.SubElement(s, "param", name="file").text = "*.tar"
-        ET.SubElement(s, "param", name="compression").text = "bz2"
+        ET.SubElement(s, "param", name="compression").text = "xz"
         r.append( s )
         return r
 
@@ -366,7 +376,7 @@ class Serviceinfo:
         allservices = self.services or []
         if singleservice and not singleservice in allservices:
             # set array to the manual specified singleservice, if it is not part of _service file
-            data = { 'name' : singleservice, 'command' : singleservice, 'mode' : '' }
+            data = { 'name' : singleservice, 'command' : [ singleservice ], 'mode' : '' }
             allservices = [data]
 
         # set environment when using OBS 2.3 or later
@@ -387,21 +397,21 @@ class Serviceinfo:
                 continue
             if service['mode'] != "trylocal" and service['mode'] != "localonly" and callmode == "trylocal":
                 continue
-            call = service['command']
             temp_dir = None
             try:
                 temp_dir = tempfile.mkdtemp()
-                name = call.split(None, 1)[0]
-                if not os.path.exists("/usr/lib/obs/service/"+name):
-                    raise oscerr.PackageNotInstalled("obs-service-"+name)
-                cmd = "/usr/lib/obs/service/" + call + " --outdir " + temp_dir
+                cmd = service['command']
+                if not os.path.exists("/usr/lib/obs/service/"+cmd[0]):
+                    raise oscerr.PackageNotInstalled("obs-service-%s"%cmd[0])
+                cmd[0] = "/usr/lib/obs/service/"+cmd[0]
+                cmd = cmd + [ "--outdir", temp_dir ]
                 if conf.config['verbose'] > 1 or verbose:
-                    print("Run source service:", cmd)
-                r = run_external(cmd, shell=True)
+                    print("Run source service:", ' '.join(cmd))
+                r = run_external(*cmd)
 
                 if r != 0:
-                    print("Aborting: service call failed: " + cmd)
-                    # FIXME: addDownloadUrlService calls si.execute after 
+                    print("Aborting: service call failed: ", ' '.join(cmd))
+                    # FIXME: addDownloadUrlService calls si.execute after
                     #        updating _services.
                     return r
 
@@ -409,6 +419,7 @@ class Serviceinfo:
                     for filename in os.listdir(temp_dir):
                         shutil.move( os.path.join(temp_dir, filename), os.path.join(dir, filename) )
                 else:
+                    name = service['name']
                     for filename in os.listdir(temp_dir):
                         shutil.move( os.path.join(temp_dir, filename), os.path.join(dir, "_service:"+name+":"+filename) )
             finally:
@@ -480,6 +491,31 @@ class Linkinfo:
         else:
             return 'None'
 
+class DirectoryServiceinfo:
+    def __init__(self):
+        self.code = None
+        self.xsrcmd5 = None
+        self.lsrcmd5 = None
+        self.error = ''
+
+    def read(self, serviceinfo_node):
+        if serviceinfo_node is None:
+            return
+        self.code = serviceinfo_node.get('code')
+        self.xsrcmd5 = serviceinfo_node.get('xsrcmd5')
+        self.lsrcmd5 = serviceinfo_node.get('lsrcmd5')
+        self.error = serviceinfo_node.find('error')
+        if self.error:
+            self.error = self.error.text
+
+    def isexpanded(self):
+        """
+        Returns true, if the directory contains the "expanded"/generated service files
+        """
+        return self.lsrcmd5 is not None and self.xsrcmd5 is None
+
+    def haserror(self):
+        return self.error is not None
 
 # http://effbot.org/zone/element-lib.htm#prettyprint
 def xmlindent(elem, level=0):
@@ -548,8 +584,6 @@ class Project:
     """
 
     REQ_STOREFILES = ('_project', '_apiurl')
-    if conf.config['do_package_tracking']:
-        REQ_STOREFILES += ('_packages',)
 
     def __init__(self, dir, getPackageList=True, progress_obj=None, wc_check=True):
         """
@@ -610,7 +644,10 @@ class Project:
     def wc_check(self):
         global store
         dirty_files = []
-        for fname in Project.REQ_STOREFILES:
+        req_storefiles = Project.REQ_STOREFILES
+        if conf.config['do_package_tracking']:
+            req_storefiles += ('_packages',)
+        for fname in req_storefiles:
             if not os.path.exists(os.path.join(self.absdir, store, fname)):
                 dirty_files.append(fname)
         return dirty_files
@@ -795,6 +832,8 @@ class Project:
                 # update complete project
                 # packages which no longer exists upstream
                 upstream_del = [ pac for pac in self.pacs_have if not pac in self.pacs_available and self.get_state(pac) != 'A']
+                sinfo_pacs = [pac for pac in self.pacs_have if self.get_state(pac) in (' ', 'D') and not pac in self.pacs_broken]
+                sinfos = get_project_sourceinfo(self.apiurl, self.name, True, *sinfo_pacs)
 
                 for pac in upstream_del:
                     if self.status(pac) != '!':
@@ -813,12 +852,13 @@ class Project:
                     if pac in self.pacs_broken:
                         if self.get_state(pac) != 'A':
                             checkout_package(self.apiurl, self.name, pac,
-                                             pathname=getTransActPath(os.path.join(self.dir, pac)), prj_obj=self, \
+                                             pathname=getTransActPath(os.path.join(self.dir, pac)), prj_obj=self,
                                              prj_dir=self.dir, expand_link=not unexpand_link, progress_obj=self.progress_obj)
                     elif state == ' ':
                         # do a simple update
                         p = Package(os.path.join(self.dir, pac), progress_obj=self.progress_obj)
                         rev = None
+                        needs_update = True
                         if expand_link and p.islink() and not p.isexpanded():
                             if p.haslinkerror():
                                 try:
@@ -833,19 +873,29 @@ class Project:
                             rev = p.linkinfo.lsrcmd5
                             print('Unexpanding to rev', rev)
                         elif p.islink() and p.isexpanded():
-                            rev = p.latest_rev()
+                            needs_update = p.update_needed(sinfos[p.name])
+                            if needs_update:
+                                rev = p.latest_rev()
+                        elif p.hasserviceinfo() and p.serviceinfo.isexpanded() and not service_files:
+                            # FIXME: currently, do_update does not propagate the --server-side-source-service-files
+                            # option to this method. Consequence: an expanded service is always unexpanded during
+                            # an update (TODO: discuss if this is a reasonable behavior (at least this the default
+                            # behavior for a while))
+                            needs_update = True
+                        else:
+                            needs_update = p.update_needed(sinfos[p.name])
                         print('Updating %s' % p.name)
-                        p.update(rev, service_files)
+                        if needs_update:
+                            p.update(rev, service_files)
+                        else:
+                            print('At revision %s.' % p.rev)
                         if unexpand_link:
                             p.unmark_frozen()
                     elif state == 'D':
-                        # TODO: Package::update has to fixed to behave like svn does
-                        if pac in self.pacs_broken:
-                            checkout_package(self.apiurl, self.name, pac,
-                                             pathname=getTransActPath(os.path.join(self.dir, pac)), prj_obj=self, \
-                                             prj_dir=self.dir, expand_link=expand_link, progress_obj=self.progress_obj)
-                        else:
-                            Package(os.path.join(self.dir, pac), progress_obj=self.progress_obj).update()
+                        # pac exists (the non-existent pac case was handled in the first if block)
+                        p = Package(os.path.join(self.dir, pac), progress_obj=self.progress_obj)
+                        if p.update_needed(sinfos[p.name]):
+                            p.update()
                     elif state == 'A' and pac in self.pacs_available:
                         # file/dir called pac already exists and is under version control
                         msg = 'can\'t add package \'%s\': Object already exists' % pac
@@ -1593,6 +1643,8 @@ class Package:
 
         self.linkinfo = Linkinfo()
         self.linkinfo.read(files_tree_root.find('linkinfo'))
+        self.serviceinfo = DirectoryServiceinfo()
+        self.serviceinfo.read(files_tree_root.find('serviceinfo'))
 
         self.filenamelist = []
         self.filelist = []
@@ -1676,6 +1728,12 @@ class Package:
         If the package is not a link it returns None.
         """
         return self.linkinfo.error
+
+    def hasserviceinfo(self):
+        """
+        Returns True, if this package contains services.
+        """
+        return self.serviceinfo.lsrcmd5 is not None or self.serviceinfo.xsrcmd5 is not None
 
     def update_local_pacmeta(self):
         """
@@ -1976,7 +2034,7 @@ rev: %s
     def mark_frozen(self):
         store_write_string(self.absdir, '_frozenlink', '')
         print()
-        print("The link in this package is currently broken. Checking")
+        print("The link in this package (\"%s\") is currently broken. Checking" % self.name)
         print("out the last working version instead; please use 'osc pull'")
         print("to merge the conflicts.")
         print()
@@ -2042,6 +2100,42 @@ rev: %s
                 deleted.append(f)
 
         return kept, added, deleted, services
+
+    def update_needed(self, sinfo):
+        # this method might return a false-positive (that is a True is returned,
+        # even though no update is needed) (for details, see comments below)
+        if self.islink():
+            if self.isexpanded():
+                # check if both revs point to the same expanded sources
+                # Note: if the package contains a _service file, sinfo.srcmd5's lsrcmd5
+                # points to the "expanded" services (xservicemd5) => chances
+                # for a false-positive are high, because osc usually works on the
+                # "unexpanded" services.
+                # Once the srcserver supports something like noservice=1, we can get rid of
+                # this false-positives (patch was already sent to the ml) (but this also
+                # requires some slight changes in osc)
+                return sinfo.get('srcmd5') != self.srcmd5
+            elif self.hasserviceinfo():
+                # check if we have expanded or unexpanded services
+                if self.serviceinfo.isexpanded():
+                    return sinfo.get('lsrcmd5') != self.srcmd5
+                else:
+                    # again, we might have a false-positive here, because
+                    # a mismatch of the "xservicemd5"s does not neccessarily
+                    # imply a change in the "unexpanded" services.
+                    return sinfo.get('lsrcmd5') != self.serviceinfo.xsrcmd5
+            # simple case: unexpanded sources and no services
+            # self.srcmd5 should also work
+            return sinfo.get('lsrcmd5') != self.linkinfo.lsrcmd5
+        elif self.hasserviceinfo():
+            if self.serviceinfo.isexpanded():
+                return sinfo.get('srcmd5') != self.srcmd5
+            else:
+                # cannot handle this case, because the sourceinfo does not contain
+                # information about the lservicemd5. Once the srcserver supports
+                # a noservice=1 query parameter, we can handle this case.
+                return True
+        return sinfo.get('srcmd5') != self.srcmd5
 
     def update(self, rev = None, service_files = False, size_limit = None):
         import tempfile
@@ -2269,6 +2363,10 @@ class AbstractState:
         """return data from <comment /> tag"""
         raise NotImplementedError()
 
+    def get_description(self):
+        """return data from <description /> tag"""
+        raise NotImplementedError()
+
     def to_xml(self):
         """serialize object to XML"""
         root = ET.Element(self.get_node_name())
@@ -2276,6 +2374,8 @@ class AbstractState:
             val = getattr(self, attr)
             if not val is None:
                 root.set(attr, val)
+        if self.get_description():
+            ET.SubElement(root, 'description').text = self.get_description()
         if self.get_comment():
             ET.SubElement(root, 'comment').text = self.get_comment()
         return root
@@ -2312,6 +2412,50 @@ class ReviewState(AbstractState):
     def get_comment(self):
         return self.comment
 
+    def get_description(self):
+        return None
+
+
+class RequestHistory(AbstractState):
+    """Represents a history element of a request"""
+    re_name = re.compile(r'^Request (?:got )?([^\s]+)$')
+
+    def __init__(self, history_node):
+        AbstractState.__init__(self, history_node.tag)
+        self.who = history_node.get('who')
+        self.when = history_node.get('when')
+        if not history_node.find('description') is None and \
+            history_node.find('description').text:
+            # OBS 2.6
+            self.description = history_node.find('description').text.strip()
+        else:
+            # OBS 2.5 and before
+            self.description = history_node.get('name')
+        self.comment = ''
+        if not history_node.find('comment') is None and \
+            history_node.find('comment').text:
+            self.comment = history_node.find('comment').text.strip()
+        self.name = self._parse_name(history_node)
+
+    def _parse_name(self, history_node):
+        name = history_node.get('name', None)
+        if name is not None:
+            # OBS 2.5 and before
+            return name
+        mo = self.re_name.search(self.description)
+        if mo is not None:
+            return mo.group(1)
+        return self.description
+
+    def get_node_attrs(self):
+        return ('who', 'when')
+
+    def get_description(self):
+        return self.description
+
+    def get_comment(self):
+        return self.comment
+
 
 class RequestState(AbstractState):
     """Represents the state of a request"""
@@ -2323,6 +2467,9 @@ class RequestState(AbstractState):
         self.name = state_node.get('name')
         self.who = state_node.get('who')
         self.when = state_node.get('when')
+        if state_node.find('description') is None:
+            # OBS 2.6 has it always, before it did not exist
+            self.description = state_node.get('description')
         self.comment = ''
         if not state_node.find('comment') is None and \
             state_node.find('comment').text:
@@ -2333,6 +2480,9 @@ class RequestState(AbstractState):
 
     def get_comment(self):
         return self.comment
+
+    def get_description(self):
+        return None
 
 
 class Action:
@@ -2361,13 +2511,13 @@ class Action:
     # allowed types + the corresponding (allowed) attributes
     type_args = {'submit': ('src_project', 'src_package', 'src_rev', 'tgt_project', 'tgt_package', 'opt_sourceupdate',
                             'acceptinfo_rev', 'acceptinfo_srcmd5', 'acceptinfo_xsrcmd5', 'acceptinfo_osrcmd5',
-                            'acceptinfo_oxsrcmd5', 'opt_updatelink'),
+                            'acceptinfo_oxsrcmd5', 'opt_updatelink', 'opt_makeoriginolder'),
         'add_role': ('tgt_project', 'tgt_package', 'person_name', 'person_role', 'group_name', 'group_role'),
         'set_bugowner': ('tgt_project', 'tgt_package', 'person_name', 'group_name'),
         'maintenance_release': ('src_project', 'src_package', 'src_rev', 'tgt_project', 'tgt_package', 'person_name',
                             'acceptinfo_rev', 'acceptinfo_srcmd5', 'acceptinfo_xsrcmd5', 'acceptinfo_osrcmd5',
                             'acceptinfo_oxsrcmd5'),
-        'maintenance_incident': ('src_project', 'src_package', 'src_rev', 'tgt_project', 'tgt_releaseproject', 'person_name', 'opt_sourceupdate'),
+        'maintenance_incident': ('src_project', 'src_package', 'src_rev', 'tgt_project', 'tgt_releaseproject', 'person_name', 'opt_sourceupdate', 'opt_makeoriginolder'),
         'delete': ('tgt_project', 'tgt_package', 'tgt_repository'),
         'change_devel': ('src_project', 'src_package', 'tgt_project', 'tgt_package'),
         'group': ('grouped_id', )}
@@ -2465,6 +2615,7 @@ class Request:
         self.reqid = None
         self.title = ''
         self.description = ''
+        self.priority = None
         self.state = None
         self.accept_at = None
         self.actions = []
@@ -2490,8 +2641,10 @@ class Request:
             self.actions.append(Action.from_xml(action))
         for review in root.findall('review'):
             self.reviews.append(ReviewState(review))
-        for hist_state in root.findall('history'):
-            self.statehistory.append(RequestState(hist_state))
+        for history_element in root.findall('history'):
+            self.statehistory.append(RequestHistory(history_element))
+        if not root.find('priority') is None and root.find('priority').text:
+            self.priority = root.find('priority').text.strip()
         if not root.find('accept_at') is None and root.find('accept_at').text:
             self.accept_at = root.find('accept_at').text.strip()
         if not root.find('title') is None:
@@ -2537,6 +2690,8 @@ class Request:
             ET.SubElement(root, 'description').text = self.description
         if self.accept_at:
             ET.SubElement(root, 'accept_at').text = self.accept_at
+        if self.priority:
+            ET.SubElement(root, 'priority').text = self.priority
         return root
 
     def to_str(self):
@@ -2629,6 +2784,10 @@ class Request:
             if action.src_package == action.tgt_package:
                 tgt_package = ''
             d['target'] = prj_pkg_join(action.tgt_project, tgt_package)
+            if action.opt_makeoriginolder:
+                d['target'] = d['target'] + ' ***make origin older***'
+            if action.opt_updatelink:
+                d['target'] = d['target'] + ' ***update link***'
         elif action.type == 'add_role':
             roles = []
             if action.person_name and action.person_role:
@@ -2663,7 +2822,7 @@ class Request:
         tmpl = '        Review by %(type)-10s is %(state)-10s %(by)-50s'
         for review in self.reviews:
             lines.append(tmpl % Request.format_review(review))
-        history = ['%s(%s)' % (hist.name, hist.who) for hist in self.statehistory]
+        history = ['%s: %s' % (hist.description, hist.who) for hist in self.statehistory]
         if history:
             lines.append('        From: %s' % ' -> '.join(history))
         if self.description:
@@ -2678,6 +2837,8 @@ class Request:
         lines = ['Request: #%s\n' % self.reqid]
         if self.accept_at and self.state.name in [ 'new', 'review' ]:
             lines.append('    *** This request will get automatically accepted after '+self.accept_at+' ! ***\n')
+        if self.priority in [ 'critical', 'important' ] and self.state.name in [ 'new', 'review' ]:
+            lines.append('    *** This request has classified as '+self.priority+' ! ***\n')
             
         for action in self.actions:
             tmpl = '  %(type)-13s %(source)s %(target)s'
@@ -2704,7 +2865,7 @@ class Request:
             if review.by_group:
                 d['by'] = "Group: " + review.by_group
             if review.by_package:
-                d['by'] = "Package: " + review.by_project + "/" + review.by_package 
+                d['by'] = "Package: " + review.by_project + "/" + review.by_package
             elif review.by_project:
                 d['by'] = "Project: " + review.by_project
             d['when'] = review.when or ''
@@ -2714,11 +2875,10 @@ class Request:
         if reviews:
             lines.append('\nReview:  %s' % indent.join(reviews))
 
-        tmpl = '%(name)-10s %(when)-12s %(who)s'
+        tmpl = '%(when)-10s %(who)-12s %(desc)s'
         histories = []
         for hist in reversed(self.statehistory):
-            d = {'name': hist.name, 'when': hist.when,
-                'who': hist.who}
+            d = {'when': hist.when, 'who': hist.who, 'desc': hist.description}
             histories.append(tmpl % d)
         if histories:
             lines.append('\nHistory: %s' % indent.join(histories))
@@ -2745,11 +2905,11 @@ def shorttime(t):
     """
     import time
 
-    if time.localtime()[0] == time.localtime(t)[0]:
+    if time.gmtime()[0] == time.gmtime(t)[0]:
         # same year
-        return time.strftime('%b %d %H:%M', time.localtime(t))
+        return time.strftime('%b %d %H:%M %Z', time.gmtime(t))
     else:
-        return time.strftime('%b %d  %Y', time.localtime(t))
+        return time.strftime('%b %d  %Y', time.gmtime(t))
 
 
 def is_project_dir(d):
@@ -3091,11 +3251,13 @@ def check_store_version(dir):
         raise oscerr.WorkingCopyWrongVersion(msg)
 
 
-def meta_get_packagelist(apiurl, prj, deleted=None):
+def meta_get_packagelist(apiurl, prj, deleted=None, expand=False):
 
     query = {}
     if deleted:
         query['deleted'] = 1
+    if expand:
+        query['expand'] = 1
 
     u = makeurl(apiurl, ['source', prj], query)
     f = http_GET(u)
@@ -3317,8 +3479,8 @@ class metafile:
                     break
                 except HTTPError as e:
                     error_help = "%d" % e.code
-                    if e.headers.get('X-Opensuse-Errorcode'):
-                        error_help = "%s (%d)" % (e.headers.get('X-Opensuse-Errorcode'), e.code)
+                    if e.hdrs.get('X-Opensuse-Errorcode'):
+                        error_help = "%s (%d)" % (e.hdrs.get('X-Opensuse-Errorcode'), e.code)
 
                     print('BuildService API error:', error_help, file=sys.stderr)
                     # examine the error - we can't raise an exception because we might want
@@ -3503,6 +3665,37 @@ def show_upstream_xsrcmd5(apiurl, prj, pac, revision=None, linkrev=None, linkrep
     return li.xsrcmd5
 
 
+def show_project_sourceinfo(apiurl, project, nofilename, *packages):
+    query = ['view=info']
+    if packages:
+        query.extend(['package=%s' % quote_plus(p) for p in packages])
+    if nofilename:
+        query.append('nofilename=1')
+    f = http_GET(makeurl(apiurl, ['source', project], query=query))
+    return f.read()
+
+
+def get_project_sourceinfo(apiurl, project, nofilename, *packages):
+    try:
+        si = show_project_sourceinfo(apiurl, project, nofilename, *packages)
+    except HTTPError, e:
+        if e.code != 414:
+            raise
+        if len(packages) == 1:
+            raise oscerr.APIError('package name too long: %s' % packages[0])
+        n = len(packages) / 2
+        pkgs = packages[:n]
+        res = get_project_sourceinfo(apiurl, project, nofilename, *pkgs)
+        pkgs = packages[n:]
+        res.update(get_project_sourceinfo(apiurl, project, nofilename, *pkgs))
+        return res
+    root = ET.fromstring(si)
+    res = {}
+    for sinfo in root.findall('sourceinfo'):
+        res[sinfo.get('package')] = sinfo
+    return res
+
+
 def show_upstream_rev_vrev(apiurl, prj, pac, revision=None, expand=False, meta=False):
     m = show_files_meta(apiurl, prj, pac, revision=revision, expand=expand, meta=meta)
     et = ET.fromstring(''.join(m))
@@ -3658,7 +3851,6 @@ def _edit_message_open_editor(filename, data, orig_mtime):
     return os.stat(filename).st_mtime != orig_mtime
 
 def edit_message(footer='', template='', templatelen=30):
-    import tempfile
     delim = '--This line, and those below, will be ignored--\n'
     data = ''
     if template != '':
@@ -3668,18 +3860,24 @@ def edit_message(footer='', template='', templatelen=30):
             if lines[templatelen:]:
                 footer = '%s\n\n%s' % ('\n'.join(lines[templatelen:]), footer)
     data += '\n' + delim + '\n' + footer
+    return edit_text(data, delim, suffix='.diff', template=template)
+
+def edit_text(data='', delim=None, suffix='.txt', template=''):
+    import tempfile
     try:
-        (fd, filename) = tempfile.mkstemp(prefix='osc-commitmsg', suffix='.diff')
+        (fd, filename) = tempfile.mkstemp(prefix='osc-editor', suffix=suffix)
         os.close(fd)
         mtime = os.stat(filename).st_mtime
         while True:
             file_changed = _edit_message_open_editor(filename, data, mtime)
-            msg = open(filename).read().split(delim)[0].rstrip()
+            msg = open(filename).read()
+            if delim:
+                msg = msg.split(delim)[0].rstrip()
             if msg and file_changed:
                 break
             else:
                 reason = 'Log message not specified'
-                if template and template == msg:
+                if template == msg:
                     reason = 'Default log message was not changed. Press \'c\' to continue.'
                 ri = raw_input('%s\na)bort, c)ontinue, e)dit: ' % reason)
                 if ri in 'aA':
@@ -3730,19 +3928,23 @@ def create_maintenance_request(apiurl, src_project, src_packages, tgt_project, t
     r.create(apiurl, addrevision=True)
     return r
 
-# This creates an old style submit request for server api 1.0
 def create_submit_request(apiurl,
                          src_project, src_package=None,
                          dst_project=None, dst_package=None,
-                         message="", orev=None, src_update=None):
+                         message="", orev=None, src_update=None, dst_updatelink=None):
 
     import cgi
     options_block = ""
     package = ""
     if src_package:
         package = """package="%s" """ % (src_package)
+    options_block = "<options>"
     if src_update:
-        options_block = """<options><sourceupdate>%s</sourceupdate></options> """ % (src_update)
+        options_block += """<sourceupdate>%s</sourceupdate>""" % (src_update)
+    if dst_updatelink:
+        options_block += """<updatelink>true</updatelink>"""
+    options_block += "</options>"
+
 
     # Yes, this kind of xml construction is horrible
     targetxml = ""
@@ -3753,12 +3955,12 @@ def create_submit_request(apiurl,
         targetxml = """<target project="%s" %s /> """ % ( dst_project, packagexml )
     # XXX: keep the old template for now in order to work with old obs instances
     xml = """\
-<request type="submit">
-    <submit>
+<request>
+    <action type="submit">
         <source project="%s" %s rev="%s"/>
         %s
         %s
-    </submit>
+    </action>
     <state name="new"/>
     <description>%s</description>
 </request>
@@ -3781,14 +3983,20 @@ def create_submit_request(apiurl,
         root = ET.parse(f).getroot()
         r = root.get('id')
     except HTTPError as e:
-        if e.headers.get('X-Opensuse-Errorcode') == "submit_request_rejected":
+        if e.hdrs.get('X-Opensuse-Errorcode') == "submit_request_rejected":
             print("WARNING:")
             print("WARNING: Project does not accept submit request, request to open a NEW maintenance incident instead")
             print("WARNING:")
-            xpath = 'maintenance/maintains/@project = \'%s\'' % dst_project
+            xpath = 'maintenance/maintains/@project = \'%s\' and attribute/@name = \'%s\'' % (dst_project, conf.config['maintenance_attribute'])
             res = search(apiurl, project_id=xpath)
             root = res['project_id']
             project = root.find('project')
+            if project is None:
+               print("WARNING: This project is not maintained in the maintenance project specified by '%s', looking elsewhere" % conf.config['maintenance_attribute'])
+               xpath = 'maintenance/maintains/@project = \'%s\'' % dst_project
+               res = search(apiurl, project_id=xpath)
+               root = res['project_id']
+               project = root.find('project')
             if project is None:
                 raise oscerr.APIError("Server did not define a default maintenance project, can't submit.")
             tproject = project.get('name')
@@ -3800,7 +4008,7 @@ def create_submit_request(apiurl,
 
 
 def get_request(apiurl, reqid):
-    u = makeurl(apiurl, ['request', reqid])
+    u = makeurl(apiurl, ['request', reqid], {'withfullhistory': '1'})
     f = http_GET(u)
     root = ET.parse(f).getroot()
 
@@ -3849,7 +4057,7 @@ def change_request_state_template(req, newstate):
     action = req.actions[0]
     tmpl_name = '%srequest_%s_template' % (action.type, newstate)
     tmpl = conf.config.get(tmpl_name, '')
-    tmpl = tmpl.replace('\\t', '\t').replace('\\n', '\n')    
+    tmpl = tmpl.replace('\\t', '\t').replace('\\n', '\n')
     data = {'reqid': req.reqid, 'type': action.type, 'who': req.get_creator()}
     if req.actions[0].type == 'submit':
         data.update({'src_project': action.src_project,
@@ -3862,7 +4070,7 @@ def change_request_state_template(req, newstate):
         print('error: cannot interpolate \'%s\' in \'%s\'' % (e.args[0], tmpl_name), file=sys.stderr)
         return ''
 
-def get_review_list(apiurl, project='', package='', byuser='', bygroup='', byproject='', bypackage='', states=('new')):
+def get_review_list(apiurl, project='', package='', byuser='', bygroup='', byproject='', bypackage='', states=()):
     # this is so ugly...
     def build_by(xpath, val):
         if 'all' in states:
@@ -3873,16 +4081,16 @@ def get_review_list(apiurl, project='', package='', byuser='', bygroup='', bypro
                 s_xp = xpath_join(s_xp, '@state=\'%s\'' % state, inner=True)
             val = val.strip('[').strip(']')
             return xpath_join(xpath, 'review[%s and (%s)]' % (val, s_xp), op='and')
+        else:
+            # default case
+            return xpath_join(xpath, 'review[%s and @state=\'new\']' % val, op='and')
         return ''
 
     xpath = ''
-    xpath = xpath_join(xpath, 'state/@name=\'review\'', inner=True)
-    if not 'all' in states:
-        for state in states:
-            xpath = xpath_join(xpath, 'review/@state=\'%s\'' % state, inner=True)
-    if byuser or bygroup or bypackage or byproject:
-        # discard constructed xpath...
-        xpath = xpath_join('', 'state/@name=\'review\'', inner=True)
+    if states == ():
+        # default: requests which are still open and have reviews in "new" state
+        xpath = xpath_join('', 'state/@name=\'review\'', op='and')
+        xpath = xpath_join(xpath, 'review/@state=\'new\'', op='and')
     if byuser:
         xpath = build_by(xpath, '@by_user=\'%s\'' % byuser)
     if bygroup:
@@ -4050,7 +4258,7 @@ def check_existing_requests(apiurl, src_project, src_package, dst_project,
     reqs = get_exact_request_list(apiurl, src_project, dst_project,
                                   src_package, dst_package,
                                   req_type='submit',
-                                  req_state=['new','review', 'declined'])
+                                  req_state=['new', 'review', 'declined'])
     repl = ''
     if reqs:
         print('There are already the following submit request: %s.' % \
@@ -4117,7 +4325,7 @@ def download(url, filename, progress_obj = None, mtime = None):
         try:
             o = os.fdopen(fd, 'wb')
             for buf in streamfile(url, http_GET, BUFSIZE, progress_obj=progress_obj):
-                o.write(bytes(buf,"utf-8"))
+                o.write(bytes(buf, "utf-8"))
             o.close()
             os.rename(tmpfile, filename)
         except:
@@ -4435,13 +4643,13 @@ def checkout_package(apiurl, project, package,
                 # if we are in a package dir, goto parent.
                 # Hmm, with 'checkout_no_colon' in effect, we have directory levels that
                 # do not easily reveal the fact, that they are part of a project path.
-                # At least this test should find that the parent of 'home/username/branches' 
+                # At least this test should find that the parent of 'home/username/branches'
                 #  is a project (hack alert). Also goto parent in this case.
                 root_dots = "../"
             elif is_project_dir("../.."):
                 # testing two levels is better than one.
-                # May happen in case of checkout_no_colon, or 
-                # if project roots were previously inconsistent 
+                # May happen in case of checkout_no_colon, or
+                # if project roots were previously inconsistent
                 root_dots = "../../"
             if is_project_dir(root_dots):
                 if conf.config['checkout_no_colon']:
@@ -4983,12 +5191,12 @@ def get_distibutions(apiurl, discon=False):
         for node in root.findall('entry'):
             if node.get('name').startswith('DISCONTINUED:'):
                 rmap = {}
-                rmap['name'] = node.get('name').replace('DISCONTINUED:','').replace(':', ' ')
+                rmap['name'] = node.get('name').replace('DISCONTINUED:', '').replace(':', ' ')
                 rmap['project'] = node.get('name')
                 r.append (result_line_templ % rmap)
 
-        r.insert(0,'distribution              project')
-        r.insert(1,'------------              -------')
+        r.insert(0, 'distribution              project')
+        r.insert(1, '------------              -------')
 
     else:
         result_line_templ = '%(name)-25s %(project)-25s %(repository)-25s %(reponame)s'
@@ -5007,8 +5215,8 @@ def get_distibutions(apiurl, discon=False):
                 rmap['reponame'] = node5.text
             r.append(result_line_templ % rmap)
 
-        r.insert(0,'distribution              project                   repository                reponame')
-        r.insert(1,'------------              -------                   ----------                --------')
+        r.insert(0, 'distribution              project                   repository                reponame')
+        r.insert(1, '------------              -------                   ----------                --------')
 
     return r
 
@@ -5034,6 +5242,30 @@ class Repo:
 
     def __str__(self):
         return self.repo_line_templ % (self.name, self.arch)
+
+    def __repr__(self):
+        return 'Repo(%s %s)' % (self.name, self.arch)
+
+    @staticmethod
+    def fromfile(filename):
+        if not os.path.exists(filename):
+            return []
+        repos = []
+        lines = open(filename, 'r').readlines()
+        for line in lines:
+            data = line.split()
+            if len(data) == 2:
+                repos.append(Repo(data[0], data[1]))
+            elif len(data) == 1:
+                # only for backward compatibility
+                repos.append(Repo(data[0], ''))
+        return repos
+
+    @staticmethod
+    def tofile(filename, repos):
+        with open(filename, 'w') as f:
+            for repo in repos:
+                f.write('%s %s\n' % (repo.name, repo.arch))
 
 def get_repos_of_project(apiurl, prj):
     f = show_project_meta(apiurl, prj)
@@ -5376,7 +5608,7 @@ def streamfile(url, http_meth = http_GET, bufsize=8192, data=None, progress_obj=
     """
     performs http_meth on url and read bufsize bytes from the response
     until EOF is reached. After each read bufsize bytes are yielded to the
-    caller.
+    caller. A spezial usage is bufsize="line" to read line by line (text).
     """
     cl = ''
     retries = 0
@@ -5401,14 +5633,23 @@ def streamfile(url, http_meth = http_GET, bufsize=8192, data=None, progress_obj=
     if progress_obj:
         basename = os.path.basename(urlsplit(url)[2])
         progress_obj.start(basename=basename, text=text, size=cl)
-    data = f.read(bufsize)
-    read = len(data)
-    while len(data):
+
+    if bufsize == "line":
+        bufsize = 8192
+        xread = f.readline
+    else:
+        xread = f.read
+
+    read = 0
+    while True:
+        data = xread(bufsize)
+        if not len(data):
+            break
+        read += len(data)
         if progress_obj:
             progress_obj.update(read)
         yield data
-        data = f.read(bufsize)
-        read += len(data)
+
     if progress_obj:
         progress_obj.end(read)
     f.close()
@@ -5419,7 +5660,7 @@ def streamfile(url, http_meth = http_GET, bufsize=8192, data=None, progress_obj=
 
 def buildlog_strip_time(data):
     """Strips the leading build time from the log"""
-    time_regex = re.compile('^\[\s{0,5}\d+s\]\s', re.M)
+    time_regex = re.compile('^\[[^\]]*\] ', re.M)
     return time_regex.sub('', data)
 
 
@@ -5438,7 +5679,7 @@ def print_buildlog(apiurl, prj, package, repository, arch, offset=0, strip_time=
         query['start'] = offset
         start_offset = offset
         u = makeurl(apiurl, ['build', prj, repository, arch, package, '_log'], query=query)
-        for data in streamfile(u):
+        for data in streamfile(u, bufsize="line"):
             offset += len(data)
             if strip_time:
                 data = buildlog_strip_time(data)
@@ -5490,7 +5731,7 @@ def get_source_rev(apiurl, project, package, revision=None):
     # CAUTION: We have to loop through all rev and find the highest one, if none given.
 
     if revision:
-        url = makeurl(apiurl, ['source', project, package, '_history'], {'rev':revision})
+        url = makeurl(apiurl, ['source', project, package, '_history'], {'rev': revision})
     else:
         url = makeurl(apiurl, ['source', project, package, '_history'])
     f = http_GET(url)
@@ -5503,7 +5744,7 @@ def get_source_rev(apiurl, project, package, revision=None):
         elif ent.find('time').text < new.find('time').text:
             ent = new
     if not ent:
-        return { 'version': None, 'error':'empty revisionlist: no such package?' }
+        return { 'version': None, 'error': 'empty revisionlist: no such package?' }
     e = {}
     for k in ent.keys():
         e[k] = ent.get(k)
@@ -5519,20 +5760,21 @@ def get_buildhistory(apiurl, prj, package, repository, arch, format = 'text'):
 
     r = []
     for node in root.findall('entry'):
-        rev = int(node.get('rev'))
+        rev = node.get('rev')
         srcmd5 = node.get('srcmd5')
         versrel = node.get('versrel')
         bcnt = int(node.get('bcnt'))
-        t = time.localtime(int(node.get('time')))
-        t = time.strftime('%Y-%m-%d %H:%M:%S', t)
+        t = time.gmtime(int(node.get('time')))
+        t = time.strftime('%Y-%m-%d %H:%M:%S %Z', t)
 
         if format == 'csv':
-            r.append('%s|%s|%d|%s.%d' % (t, srcmd5, rev, versrel, bcnt))
+            r.append('%s|%s|%s|%s.%d' % (t, srcmd5, rev, versrel, bcnt))
         else:
-            r.append('%s   %s %6d    %s.%d' % (t, srcmd5, rev, versrel, bcnt))
+            bversrel='%s.%d' % (versrel, bcnt)
+            r.append('%s   %s    %s %s' % (t, srcmd5, bversrel.ljust(16)[:16], rev))
 
     if format == 'text':
-        r.insert(0, 'time                  srcmd5                              rev   vers-rel.bcnt')
+        r.insert(0, 'time                  srcmd5                              vers-rel.bcnt    rev')
 
     return r
 
@@ -5557,11 +5799,11 @@ def print_jobhistory(apiurl, prj, current_package, repository, arch, format = 't
             reason = "unknown"
         code = node.get('code')
         rt = int(node.get('readytime'))
-        readyt = time.localtime(rt)
-        readyt = time.strftime('%Y-%m-%d %H:%M:%S', readyt)
+        readyt = time.gmtime(rt)
+        readyt = time.strftime('%Y-%m-%d %H:%M:%S %Z', readyt)
         st = int(node.get('starttime'))
         et = int(node.get('endtime'))
-        endtime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(et))
+        endtime = time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime(et))
         waittm = time.gmtime(et-st)
         if waittm.tm_mday > 1:
             waitbuild = "%1dd %2dh %2dm %2ds" % (waittm.tm_mday-1, waittm.tm_hour, waittm.tm_min, waittm.tm_sec)
@@ -5622,8 +5864,8 @@ def get_commitlog(apiurl, prj, package, revision, format = 'text', meta = False,
             requestid = node.find('requestid').text.encode(locale.getpreferredencoding(), 'replace')
         except:
             requestid = ""
-        t = time.localtime(int(node.find('time').text))
-        t = time.strftime('%Y-%m-%d %H:%M:%S', t)
+        t = time.gmtime(int(node.find('time').text))
+        t = time.strftime('%Y-%m-%d %H:%M:%S %Z', t)
 
         if format == 'csv':
             s = '%s|%s|%s|%s|%s|%s|%s' % (rev, user, t, srcmd5, version,
@@ -6196,7 +6438,7 @@ def setBugowner(apiurl, prj, pac, user=None, group=None):
                        template_args=None,
                        create_new=False)
     if user.startswith('group:'):
-        group=user.replace('group:','')
+        group=user.replace('group:', '')
         user=None
     if data:
         root = ET.fromstring(''.join(data))
@@ -6286,6 +6528,7 @@ def addGitSource(url):
     si = Serviceinfo()
     s = si.addGitUrl(services, url)
     s = si.addRecompressTar(services)
+    s = si.addSetVersion(services)
     si.read(s)
 
     # for pretty output
@@ -6850,7 +7093,7 @@ def find_default_project(apiurl=None, package=None):
             # any fast query will do here.
             show_package_meta(apiurl, prj, package)
             return prj
-        except HTTPError: 
+        except HTTPError:
             pass
     return None
 
@@ -6864,5 +7107,18 @@ def utime(filename, arg, ignore_einval=True):
         if e.errno == errno.EINVAL and ignore_einval:
             return
         raise
+
+def which(name):
+    """Searches "name" in PATH."""
+    name = os.path.expanduser(name)
+    if os.path.isabs(name):
+        if os.path.exists(name):
+            return name
+        return None
+    for directory in os.environ.get('PATH', '').split(':'):
+        path = os.path.join(directory, name)
+        if os.path.exists(path):
+            return path
+    return None
 
 # vim: sw=4 et

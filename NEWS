@@ -1,3 +1,41 @@
+0.151
+  - fixed shell command injection via crafted _service files (CVE-2015-0778)
+  - fix times when data comes from OBS backend
+  - support updateing the link in target package for submit requests
+  - various minor bugfixes
+
+0.150
+  - support local builds using builenv (for same build environment as a former build)
+  - add "osc api --edit" option to be able to edit some meta files directly
+  - follow the request order of the api (sorting according to priorization)
+  - add mr --release-project option for kgraft updates
+  - add support for makeoriginolder in request
+
+0.149
+  - removed "--diff" option from the "createrequest" command
+  - introduced new "vc-cmd" config option, which is used to specify the path
+    to the vc script
+  - various bugfixes
+
+0.148
+  - support new history including review history of OBS 2.6
+  - display request priorities, if important or critical
+  - add "osc rq priorize" command to re-priorize existing requests
+  - allow also "osc rq ls" shortcut
+  - fish shell completion support
+
+0.147
+  - support groups in maintainership requests
+  - fixing listing of review requests
+  - support expanded package listing (when using project links)
+  - fixing "osc add git://" behaviour
+  - using xz as default compression
+  - support local debian live (image) build format
+  - handle ppc64le for debian as well
+  - fix buildlog --strip-time
+  - some more minor bugfixes
+  - speedup update of a project working copy (in some cases)
+
 0.146
   - support maintenance release request with acceptinfo data (OBS 2.6)
   - setlinkrev can be used to update frozen links to current revisions again

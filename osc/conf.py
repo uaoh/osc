@@ -112,6 +112,8 @@ DEFAULTS = {'apiurl': 'https://api.opensuse.org',
             'build-vmdisk-rootsize': '',        # optional for VM builds
             'build-vmdisk-swapsize': '',        # optional for VM builds
             'build-vmdisk-filesystem': '',        # optional for VM builds
+            'build-kernel': '',                 # optional for VM builds
+            'build-initrd': '',                 # optional for VM builds
 
             'build-jobs': _get_processors(),
             'builtin_signature_check': '1',     # by default use builtin check for verify pkgs
@@ -172,6 +174,8 @@ DEFAULTS = {'apiurl': 'https://api.opensuse.org',
             'maintenance_attribute': 'OBS:MaintenanceProject',
             'maintained_update_project_attribute': 'OBS:UpdateProject',
             'show_download_progress': '0',
+            # path to the vc script
+            'vc-cmd': '/usr/lib/build/vc'
 }
 
 # being global to this module, this dict can be accessed from outside
@@ -224,6 +228,12 @@ apiurl = %(apiurl)s
 # build-swap is the disk-image to use as swap for VM builds
 # e.g. /var/tmp/FILE.swap
 #build-swap = /var/tmp/FILE.swap
+
+# build-kernel is the boot kernel used for VM builds
+#build-kernel = /boot/vmlinuz
+
+# build-initrd is the boot initrd used for VM builds
+#build-initrd = /boot/initrd
 
 # build-memory is the amount of memory used in the VM
 # value in MB - e.g. 512
@@ -466,7 +476,7 @@ def _build_opener(url):
                 return None
 
         authhandler_class = OscHTTPBasicAuthHandler
-    elif sys.version_info >= (2, 6, 6) and sys.version_info < (2, 7, 99):
+    elif sys.version_info >= (2, 6, 6) and sys.version_info < (2, 7, 1):
         class OscHTTPBasicAuthHandler(HTTPBasicAuthHandler):
             def http_error_404(self, *args):
                 self.reset_retry_count()
@@ -511,10 +521,10 @@ def _build_opener(url):
                     capath = i
                     break
         if not cafile and not capath:
-            raise Exception('No CA certificates found')
+            raise oscerr.OscIOError(None, 'No CA certificates found')
         ctx = oscssl.mySSLContext()
         if ctx.load_verify_locations(capath=capath, cafile=cafile) != 1:
-            raise Exception('No CA certificates found')
+            raise oscerr.OscIOError(None, 'No CA certificates found')
         opener = m2urllib2.build_opener(ctx, oscssl.myHTTPSHandler(ssl_context=ctx, appname='osc'), HTTPCookieProcessor(cookiejar), authhandler, proxyhandler)
     else:
         print("WARNING: SSL certificate checks disabled. Connection is insecure!\n", file=sys.stderr)
@@ -923,6 +933,8 @@ def get_config(override_conffile=None,
                     api_host_options[apiurl][key] = cp.getboolean(url, key)
                 else:
                     api_host_options[apiurl][key] = cp.get(url, key)
+        if cp.has_option(url, 'build-root', proper=True):
+            api_host_options[apiurl]['build-root'] = cp.get(url, 'build-root', raw=True)
 
         if not 'sslcertck' in api_host_options[apiurl]:
             api_host_options[apiurl]['sslcertck'] = True
