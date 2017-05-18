@@ -6,7 +6,6 @@
 #
 #  usage with bash
 #
-#     COMP_WORDBREAKS="${COMP_WORDBREAKS//:}"
 #     complete -C osc.complete osc
 #
 #  Author: Werner Fink <werner@suse.de>
@@ -35,14 +34,19 @@ if test "/proc/$PPID/exe" -ef /bin/tcsh ; then
     let colon=0
 else
     COMMAND_LINE="${COMP_LINE:0:$COMP_POINT}"
-#   let colon=1
     let colon=0
+    case "$COMP_WORDBREAKS" in
+    *:*) let colon=1
+    esac
     [[ $COMMAND_LINE =~ \\: ]] && COMMAND_LINE="${COMMAND_LINE//\\:/:}"
 fi
 IFS="${IFS}="
 cmdline=($COMMAND_LINE)
 IFS="$OIFS"
-test "${cmdline[0]}" != "osc" && exit 1
+case "${cmdline[0]}" in
+iosc|isc|osc) ;;
+*) exit 1
+esac
 
 let last=${#COMMAND_LINE}
 let last--
@@ -55,8 +59,8 @@ oscopts=(--version --help --debugger --post-mortem --traceback --http-full-debug
     --debug --apiurl -A --config -c --no-keyring --no-gnome-keyring --verbose --quiet)
 osccmds=(abortbuild add addremove aggregatepac api ar bco bl blt branch branchco
     bsdevelproject bse bugowner build buildconfig buildhist buildhistory buildinfo
-    buildlog buildlogtail cat changedevelreq changedevelrequest checkin checkout
-    chroot ci co commit config copypac cr createincident createrequest creq del
+    buildlog buildlogtail cat changedevelreq changedevelrequest checkconstraints checkin checkout
+    chroot ci co comment commit config copypac cr createincident createrequest creq del
     delete deletereq deleterequest dependson detachbranch develproject di diff
     distributions dists dr dropreq droprequest getbinaries getpac help importsrcpkg
     info init jobhist jobhistory lbl ldiff less linkdiff linkpac linktobranch list
@@ -69,34 +73,76 @@ osccmds=(abortbuild add addremove aggregatepac api ar bco bl blt branch branchco
     resolved results revert review rm rq rremove se search service setlinkrev
     signkey sm sr st status submitpac submitreq submitrequest tr triggerreason
     undelete unlock up update updatepacmetafromspec user vc whatdependson who whois
-    wipebinaries)
+    wipebinaries workerinfo)
 oscreq=(list log show accept decline revoke reopen setincident supersede approvenew
     checkout clone)
 oscrev=(show list add accept decline reopen supersede)
 oscmy=(work pkg prj rq sr)
+osccmt=(list create delete)
+osccmtkind=(package project request)
 
 oscprj=""
 oscpkg=""
 lnkprj=""
 lnkpkg=""
+apiurl=""
+alias=""
 test -s ${PWD}/.osc/_project && read -t 1 oscprj < ${PWD}/.osc/_project
 test -s ${PWD}/.osc/_package && read -t 1 oscpkg < ${PWD}/.osc/_package
 if test -s ${PWD}/.osc/_files ; then
     lnkprj=$(command sed -rn '/<linkinfo/{s@.*[[:blank:]]project="([^"]+)".*@\1@p;}' < ${PWD}/.osc/_files)
     lnkpkg=$(command sed -rn '/<linkinfo/{s@.*[[:blank:]]package="([^"]+)".*@\1@p;}' < ${PWD}/.osc/_files)
 fi
+if test -s ${PWD}/.osc/_apiurl -a -s ~/.oscrc ; then
+    read apiurl < ${PWD}/.osc/_apiurl
+    alias=$(sed -rn '\@^\['${apiurl}'@,\@=@{\@^aliases=@{s@[^=]+=([^,]+),.*@\1@p};}' < ~/.oscrc 2> /dev/null)
+fi
+if test "${cmdline[0]}" = isc ; then
+    alias=internal
+fi
 
-if test -s ~/.osc.projects ; then
-    typeset -i ctime=$(command date -d "$(command stat -c '%z' ~/.osc.projects)" +'%s')
+projects=~/.osc.projects
+command=osc
+
+case "${cmdline[1]}" in
+-A|--apiurl)
+    if test -n "${cmdline[2]}" -a -s ~/.oscrc ; then
+	hints=($(sed -rn '/^(aliases=|\[http)/{s/,/ /g;s/(aliases=|\[|\])//gp}' < ~/.oscrc 2> /dev/null))
+	for h in ${hints[@]} ; do
+	    case "$h" in
+	    http*)
+		tmp=$(sed -rn '\@^\['${h}'@,\@=@{\@^aliases=@{s@[^=]+=([^,]+),.*@\1@p};}' < ~/.oscrc 2> /dev/null)
+		if test "${cmdline[2]}" = "$h" ; then
+		    alias=$tmp
+		    break
+		fi
+		;;
+	    *)
+		if test "${cmdline[2]}" = "$h" ; then
+		    alias=$h
+		    break
+		fi
+	    esac
+	done
+    fi
+esac
+
+if test -n "$alias" ; then
+    projects="${projects}.${alias}"
+    command="$command -A $alias"
+fi
+
+if test -s "${projects}" ; then
+    typeset -i ctime=$(command date -d "$(command stat -c '%z' ${projects})" +'%s')
     typeset -i   now=$(command date -d now +'%s')
     if ((now - ctime > 86400)) ; then
-	if tmp=$(mktemp ~/.osc.projects.XXXXXX) ; then
-	    command osc ls / >| $tmp
-	    mv -uf $tmp ~/.osc.projects
+	if tmp=$(mktemp ${projects}.XXXXXX) ; then
+	    command ${command} ls / >| $tmp
+	    mv -uf $tmp ${projects}
 	fi
     fi
 else
-    command osc ls / >| ~/.osc.projects
+    command ${command} ls / >| "${projects}"
 fi
 
 projects ()
@@ -104,7 +150,7 @@ projects ()
     local -a list
     local -a argv
     local -i argc=0
-    local arg
+    local arg cur
     for arg; do
 	if test $arg == "--" ; then
 	    let argc++
@@ -113,15 +159,18 @@ projects ()
 	argv[argc++]=$arg
     done
     shift $argc
-    if test -n "$1" ; then
-	list=($(command grep -E "^$1" ~/.osc.projects))
+    cur="$1"
+    if test -n "${cur}" ; then
+	list=($(command grep -E "^${cur}" ${projects}))
     else
-	list=($(command cat ~/.osc.projects))
+	list=($(command cat ${projects}))
     fi
     if ((colon)) ; then
-	builtin compgen -W "${list[*]}" "$1"|sed -r 's@([^\\]):@\1\\:@g'
+	local colon_word
+	colon_word=${cur%${cur##*:}}
+	builtin compgen -W "${list[*]}" -- "${cur}" | sed -r "s@^${colon_word}@@g"
     else
-	builtin compgen -W "${list[*]}" -- ${1+"$@"}
+	builtin compgen -W "${list[*]}" -- "${cur}"
     fi
 }
 
@@ -130,7 +179,7 @@ packages ()
     local -a list
     local -a argv
     local -i argc=0
-    local arg
+    local arg cur
     for arg; do
 	if test $arg == "--" ; then
 	    let argc++
@@ -139,12 +188,13 @@ packages ()
 	argv[argc++]=$arg
     done
     shift $argc
-    if test -n "$1" ; then
-	list=($(command osc ls ${argv[@]}|command grep -E "^$1"))
+    cur="$1"
+    if test -n "${cur}" ; then
+	list=($(command ${command} ls ${argv[@]}|command grep -E "^${cur}"))
     else
-	list=($(command osc ls ${argv[@]}))
+	list=($(command ${command} ls ${argv[@]}))
     fi
-    builtin compgen -W "${list[*]}" -- ${1+"$@"}
+    builtin compgen -W "${list[*]}" -- "${cur}"
 }
 
 repositories ()
@@ -162,11 +212,11 @@ repositories ()
     done
     shift $argc
     if test -n "$1" ; then
-	list=($(command osc meta prj ${argv[@]}|\
+	list=($(command ${command} meta prj ${argv[@]}|\
 	        command sed -rn '/<repository/{s@^\s*<.*name="([^"]*)".*@\1@p}'|\
 		command sort -u|command grep -E "^$1"))
     else
-	list=($(command osc meta prj ${argv[@]}|\
+	list=($(command ${command} meta prj ${argv[@]}|\
 	        command sed -rn '/<repository/{s@^\s*<.*name="([^"]*)".*@\1@p}'|\
 		command sort -u))
     fi
@@ -188,11 +238,11 @@ architectures ()
     done
     shift $argc
     if test -n "$1" ; then
-	list=($(command osc meta prj ${argv[@]}|\
+	list=($(command ${command} meta prj ${argv[@]}|\
 		command sed -rn '/<arch>/{s@^\s*<arch>(.*)</arch>@\1@p}'|\
 		command sort -u|command grep -E "^$1"))
     else
-	list=($(command osc meta prj ${argv[@]}|\
+	list=($(command ${command} meta prj ${argv[@]}|\
 		command sed -rn '/<arch>/{s@^\s*<arch>(.*)</arch>@\1@p}'|\
 		command sort -u))
     fi
@@ -223,8 +273,8 @@ targets ()
 
 users ()
 {
-    if test -s ~/.osc.projects ; then
-	command sed -rn "/^home:$1/{ s/^home:([^:]*):.*/\1/p}" ~/.osc.projects|command sort -u
+    if test -s ${projects} ; then
+	command sed -rn "/^home:$1/{ s/^home:([^:]*):.*/\1/p}" ${projects}|command sort -u
     elif test -s ~/.oscrc; then
 	command sed -rn '/^(user=)/{s/(user=)//p}' ~/.oscrc|command sort -u
     else
@@ -350,7 +400,7 @@ add|addremove|ar)
     fi
     ;;
 build)
-    opts=(--help --oldpackages --disable-cpio-bulk-download --download-api-only --release --baselibs 
+    opts=(--help --oldpackages --disable-cpio-bulk-download --release --baselibs
 	  --disable-debuginfo --debuginfo --alternative-project --vm-type --linksources 
 	  --local-package --build-uid --userootforbuild --define --without --with 
 	  --ccache --icecream --jobs --root --extra-pkgs --keep-pkgs --prefer-pkgs 
@@ -437,9 +487,8 @@ build)
 	done
     fi 
     if ((count == 2)) ; then
-	specs=($(command ls *.spec 2>/dev/null))
-	images=($(command ls *.kiwi 2>/dev/null))
-	builtin compgen -W "${opts[*]} ${specs[*]} ${images[*]}" -- "${cmdline[count]}"
+	specs=($(command ls *.spec))
+	builtin compgen -W "${opts[*]} ${specs[*]}" -- "${cmdline[count]}"
     fi
     ;;
 branch|getpac|bco|branchco)
@@ -588,7 +637,7 @@ less|cat)
     fi
     ;;
 sr|submitpac|submitreq|submitrequest)
-    opts=(--help --yes --diff --no-update --no-cleanup --cleanup --seperate-requests
+    opts=(--help --yes --diff --no-update --no-cleanup --cleanup --separate-requests
 	  --nodevelproject --supersede --revision)
     if ((count == 1)) ; then
 	builtin compgen -W "${osccmds[*]}" -- "${cmdline[count]}"
@@ -1048,6 +1097,16 @@ my)
 	builtin compgen -W "${opts[*]}" -- "${cmdline[3]}"
     fi
     ;;
+comment)
+    opts=(--comment --parent)
+    if ((count == 1)) ; then
+        builtin compgen -W "${osccmds[*]}" -- "${cmdline[count]}"
+    elif ((count == 2)) ; then
+        builtin compgen -W "${opts[*]} ${osccmt[*]}" -- "${cmdline[2]}"
+    elif ((count == 3)) ; then
+        builtin compgen -W "${opts[*]} ${osccmtkind[*]}" -- "${cmdline[3]}"
+    fi
+    ;;
 copypac|linkpac)
     opts=(--help --expand --to-apiurl --revision --keep-develproject --keep-link
 	  --keep-maintainers --client-side-copy)
@@ -1349,7 +1408,7 @@ maintainer)
     opts=(--help --role --delete --set-bugowner-request --set-bugowner --all --add
 	  --devel-project --verbose --nodevelproject --email --bugowner --bugowner-only)
     if ((count == 1)) ; then
-	builtin compgen -W "${osccmds[*]}" -- "${cmdline[count]}"
+        builtin compgen -W "${osccmds[*]}" -- "${cmdline[count]}"
     elif ((count >= 2)) ; then
 	for ((off=2; off<=count; off++)) ; do
 	    while test "${cmdline[off+remove]::1}" = "-" ; do
@@ -1765,6 +1824,30 @@ diff|linkdiff)
 	builtin compgen -W "${opts[*]}" -- "${cmdline[count]}"
     fi
     ;;
+workerinfo)
+    opts=(--help)
+    if ((count == 1)) ; then
+        builtin compgen -W "${osccmds[*]} ${oscopts[*]}" -- "${cmdline[count]}"
+    elif ((count >= 2)) ; then
+        if test "${cmdline[count]::1}" = "-" ; then
+            builtin compgen -W "${opts[*]}" -- "${cmdline[count]}"
+        else
+            targets ${opts[*]} -- "${cmdline[count]}"
+        fi
+    fi
+    ;;
+checkconstraints)
+    opts=(--help --ignore-file)
+    if ((count == 1)) ; then
+        builtin compgen -W "${osccmds[*]} ${oscopts[*]}" -- "${cmdline[count]}"
+    elif ((count >= 2)) ; then
+        if test "${cmdline[count]::1}" = "-" ; then
+            builtin compgen -W "${opts[*]}" -- "${cmdline[count]}"
+        else
+            targets ${opts[*]} -- "${cmdline[count]}"
+        fi
+    fi
+    ;;
 *)
     opts=(--help)
     if ((count == 1)) ; then
@@ -1775,5 +1858,5 @@ diff|linkdiff)
 	else
 	    targets ${opts[*]} -- "${cmdline[count]}"
 	fi
-    fi 
+    fi
 esac

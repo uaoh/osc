@@ -41,6 +41,8 @@ import base64
 import os
 import re
 import sys
+import ssl
+import warnings
 
 try:
     from http.cookiejar import LWPCookieJar, CookieJar
@@ -49,15 +51,15 @@ try:
     from urllib.parse import urlsplit
     from urllib.error import URLError
     from urllib.request import HTTPBasicAuthHandler, HTTPCookieProcessor, HTTPPasswordMgrWithDefaultRealm, ProxyHandler
-    from urllib.request import AbstractHTTPHandler, build_opener, proxy_bypass
+    from urllib.request import AbstractHTTPHandler, build_opener, proxy_bypass, HTTPSHandler
 except ImportError:
     #python 2.x
     from cookielib import LWPCookieJar, CookieJar
     from httplib import HTTPConnection, HTTPResponse
     from StringIO import StringIO
     from urlparse import urlsplit
-    from urllib2 import URLError, HTTPBasicAuthHandler, HTTPCookieProcessor, HTTPPasswordMgrWithDefaultRealm, ProxyHandler
-    from urllib2 import AbstractHTTPHandler, build_opener, proxy_bypass
+    from urllib2 import URLError, HTTPBasicAuthHandler, HTTPCookieProcessor, HTTPPasswordMgrWithDefaultRealm, ProxyHandler, AbstractBasicAuthHandler
+    from urllib2 import AbstractHTTPHandler, build_opener, proxy_bypass, HTTPSHandler
 
 from . import OscConfigParser
 from osc import oscerr
@@ -112,6 +114,7 @@ DEFAULTS = {'apiurl': 'https://api.opensuse.org',
             'build-vmdisk-rootsize': '',        # optional for VM builds
             'build-vmdisk-swapsize': '',        # optional for VM builds
             'build-vmdisk-filesystem': '',        # optional for VM builds
+            'build-vm-user': '',                # optional for VM builds
             'build-kernel': '',                 # optional for VM builds
             'build-initrd': '',                 # optional for VM builds
 
@@ -126,6 +129,7 @@ DEFAULTS = {'apiurl': 'https://api.opensuse.org',
             'http_full_debug': '0',
             'http_retries': '3',
             'verbose': '1',
+            'no_preinstallimage': '0',
             'traceback': '0',
             'post_mortem': '0',
             'use_keyring': '0',
@@ -160,6 +164,7 @@ DEFAULTS = {'apiurl': 'https://api.opensuse.org',
             # what to do with the source package if the submitrequest has been accepted
             'submitrequest_on_accept_action': '',
             'request_show_interactive': '0',
+            'request_show_source_buildstatus': '0',
             # if a review is accepted in interactive mode and a group
             # was specified the review will be accepted for this group
             'review_inherit_group': '0',
@@ -184,8 +189,8 @@ config = DEFAULTS.copy()
 
 boolean_opts = ['debug', 'do_package_tracking', 'http_debug', 'post_mortem', 'traceback', 'check_filelist', 'plaintext_passwd',
     'checkout_no_colon', 'checkout_rooted', 'check_for_request_on_action', 'linkcontrol', 'show_download_progress', 'request_show_interactive',
-    'review_inherit_group', 'use_keyring', 'gnome_keyring', 'no_verify', 'builtin_signature_check', 'http_full_debug',
-    'include_request_from_project', 'local_service_run', 'buildlog_strip_time']
+    'request_show_source_buildstatus', 'review_inherit_group', 'use_keyring', 'gnome_keyring', 'no_verify', 'builtin_signature_check',
+    'http_full_debug', 'include_request_from_project', 'local_service_run', 'buildlog_strip_time', 'no_preinstallimage']
 
 api_host_options = ['user', 'pass', 'passx', 'aliases', 'http_headers', 'email', 'sslcertck', 'cafile', 'capath', 'trusted_prj']
 
@@ -382,23 +387,39 @@ cookiejar = None
 
 def parse_apisrv_url(scheme, apisrv):
     if apisrv.startswith('http://') or apisrv.startswith('https://'):
-        return urlsplit(apisrv)[0:2]
+        url = apisrv
     elif scheme != None:
-        # the split/join is needed to get a proper url (e.g. without a trailing slash)
-        return urlsplit(urljoin(scheme, apisrv))[0:2]
+        url = scheme + apisrv
     else:
         msg = 'invalid apiurl \'%s\' (specify the protocol (http:// or https://))' % apisrv
         raise URLError(msg)
+    scheme, url, path = urlsplit(url)[0:3]
+    return scheme, url, path.rstrip('/')
 
 
-def urljoin(scheme, apisrv):
-    return '://'.join([scheme, apisrv])
+def urljoin(scheme, apisrv, path=''):
+    return '://'.join([scheme, apisrv]) + path
 
 
 def is_known_apiurl(url):
     """returns true if url is a known apiurl"""
     apiurl = urljoin(*parse_apisrv_url(None, url))
     return apiurl in config['api_host_options']
+
+
+def extract_known_apiurl(url):
+    """
+    Return longest prefix of given url that is known apiurl,
+    None if there is no known apiurl that is prefix of given url.
+    """
+    scheme, host, path = parse_apisrv_url(None, url)
+    p = path.split('/')
+    while p:
+        apiurl = urljoin(scheme, host, '/'.join(p))
+        if apiurl in config['api_host_options']:
+            return apiurl
+        p.pop()
+    return None
 
 
 def get_apiurl_api_host_options(apiurl):
@@ -441,10 +462,9 @@ def get_apiurl_usr(apiurl):
 # So we need to build a new opener everytime we switch the
 # apiurl (because different apiurls may have different
 # cafile/capath locations)
-def _build_opener(url):
+def _build_opener(apiurl):
     from osc.core import __version__
     global config
-    apiurl = urljoin(*parse_apisrv_url(None, url))
     if 'last_opener' not in _build_opener.__dict__:
         _build_opener.last_opener = (None, None)
     if apiurl == _build_opener.last_opener[0]:
@@ -460,38 +480,33 @@ def _build_opener(url):
 
     # workaround for http://bugs.python.org/issue9639
     authhandler_class = HTTPBasicAuthHandler
-    if sys.version_info >= (2, 6, 6) and sys.version_info < (2, 7, 1) \
-        and not 'reset_retry_count' in dir(HTTPBasicAuthHandler):
-        print('warning: your urllib2 version seems to be broken. ' \
-            'Using a workaround for http://bugs.python.org/issue9639', file=sys.stderr)
-
+    if sys.version_info >= (2, 6, 6) and sys.version_info < (2, 7, 9):
         class OscHTTPBasicAuthHandler(HTTPBasicAuthHandler):
-            def http_error_401(self, *args):
-                response = HTTPBasicAuthHandler.http_error_401(self, *args)
-                self.retried = 0
-                return response
+            # The following two functions were backported from upstream 2.7.
+            def http_error_auth_reqed(self, authreq, host, req, headers):
+                authreq = headers.get(authreq, None)
 
-            def http_error_404(self, *args):
-                self.retried = 0
-                return None
+                if authreq:
+                    mo = AbstractBasicAuthHandler.rx.search(authreq)
+                    if mo:
+                        scheme, quote, realm = mo.groups()
+                        if quote not in ['"', "'"]:
+                            warnings.warn("Basic Auth Realm was unquoted",
+                                          UserWarning, 2)
+                        if scheme.lower() == 'basic':
+                            return self.retry_http_basic_auth(host, req, realm)
 
-        authhandler_class = OscHTTPBasicAuthHandler
-    elif sys.version_info >= (2, 6, 6) and sys.version_info < (2, 7, 1):
-        class OscHTTPBasicAuthHandler(HTTPBasicAuthHandler):
-            def http_error_404(self, *args):
-                self.reset_retry_count()
-                return None
-
-        authhandler_class = OscHTTPBasicAuthHandler
-    elif sys.version_info >= (2, 6, 5) and sys.version_info < (2, 6, 6):
-        # workaround for broken urllib2 in python 2.6.5: wrong credentials
-        # lead to an infinite recursion
-        class OscHTTPBasicAuthHandler(HTTPBasicAuthHandler):
             def retry_http_basic_auth(self, host, req, realm):
-                # don't retry if auth failed
-                if req.get_header(self.auth_header, None) is not None:
+                user, pw = self.passwd.find_user_password(realm, host)
+                if pw is not None:
+                    raw = "%s:%s" % (user, pw)
+                    auth = 'Basic %s' % base64.b64encode(raw).strip()
+                    if req.get_header(self.auth_header, None) == auth:
+                        return None
+                    req.add_unredirected_header(self.auth_header, auth)
+                    return self.parent.open(req, timeout=req.timeout)
+                else:
                     return None
-                return HTTPBasicAuthHandler.retry_http_basic_auth(self, host, req, realm)
 
         authhandler_class = OscHTTPBasicAuthHandler
 
@@ -527,14 +542,21 @@ def _build_opener(url):
             raise oscerr.OscIOError(None, 'No CA certificates found')
         opener = m2urllib2.build_opener(ctx, oscssl.myHTTPSHandler(ssl_context=ctx, appname='osc'), HTTPCookieProcessor(cookiejar), authhandler, proxyhandler)
     else:
+        handlers = [HTTPCookieProcessor(cookiejar), authhandler, proxyhandler]
+        try:
+            # disable ssl cert check in python >= 2.7.9
+            ctx = ssl._create_unverified_context()
+            handlers.append(HTTPSHandler(context=ctx))
+        except AttributeError:
+            pass
         print("WARNING: SSL certificate checks disabled. Connection is insecure!\n", file=sys.stderr)
-        opener = build_opener(HTTPCookieProcessor(cookiejar), authhandler, proxyhandler)
+        opener = build_opener(*handlers)
     opener.addheaders = [('User-agent', 'osc/%s' % __version__)]
     _build_opener.last_opener = (apiurl, opener)
     return opener
 
 
-def init_basicauth(config):
+def init_basicauth(config, config_mtime):
     """initialize urllib2 with the credentials for Basic Authentication"""
 
     def filterhdrs(meth, ishdr, *hdrs):
@@ -587,6 +609,9 @@ def init_basicauth(config):
     cookiejar = LWPCookieJar(cookie_file)
     try:
         cookiejar.load(ignore_discard=True)
+        if int(round(config_mtime)) > int(os.stat(cookie_file).st_mtime):
+            cookiejar.clear()
+            cookiejar.save()
     except IOError:
         try:
             fd = os.open(cookie_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
@@ -644,18 +669,18 @@ def config_set_option(section, opt, val=None, delete=False, update=True, **kwarg
     general_opts = [i for i in DEFAULTS.keys() if not i in ['user', 'pass', 'passx']]
     if section != 'general':
         section = config['apiurl_aliases'].get(section, section)
-        scheme, host = \
+        scheme, host, path = \
             parse_apisrv_url(config.get('scheme', 'https'), section)
-        section = urljoin(scheme, host)
+        section = urljoin(scheme, host, path)
 
     sections = {}
     for url in cp.sections():
         if url == 'general':
             sections[url] = url
         else:
-            scheme, host = \
+            scheme, host, path = \
                 parse_apisrv_url(config.get('scheme', 'https'), url)
-            apiurl = urljoin(scheme, host)
+            apiurl = urljoin(scheme, host, path)
             sections[apiurl] = url
 
     section = sections.get(section.rstrip('/'), section)
@@ -702,19 +727,20 @@ def write_initial_config(conffile, entries, custom_template=''):
     config.update(entries)
     # at this point use_keyring and gnome_keyring are str objects
     if config['use_keyring'] == '1' and GENERIC_KEYRING:
-        protocol, host = \
+        protocol, host, path = \
             parse_apisrv_url(None, config['apiurl'])
         keyring.set_password(host, config['user'], config['pass'])
         config['pass'] = ''
         config['passx'] = ''
     elif config['gnome_keyring'] == '1' and GNOME_KEYRING:
-        protocol, host = \
+        protocol, host, path = \
             parse_apisrv_url(None, config['apiurl'])
         gnomekeyring.set_network_password_sync(
             user=config['user'],
             password=config['pass'],
             protocol=protocol,
-            server=host)
+            server=host,
+            object=path)
         config['user'] = ''
         config['pass'] = ''
         config['passx'] = ''
@@ -741,19 +767,20 @@ def add_section(filename, url, user, passwd):
         # Section might have existed, but was empty
         pass
     if config['use_keyring'] and GENERIC_KEYRING:
-        protocol, host = parse_apisrv_url(None, url)
+        protocol, host, path = parse_apisrv_url(None, url)
         keyring.set_password(host, user, passwd)
         cp.set(url, 'keyring', '1')
         cp.set(url, 'user', user)
         cp.remove_option(url, 'pass')
         cp.remove_option(url, 'passx')
     elif config['gnome_keyring'] and GNOME_KEYRING:
-        protocol, host = parse_apisrv_url(None, url)
+        protocol, host, path = parse_apisrv_url(None, url)
         gnomekeyring.set_network_password_sync(
             user=user,
             password=passwd,
             protocol=protocol,
-            server=host)
+            server=host,
+            object=path)
         cp.set(url, 'keyring', '1')
         cp.remove_option(url, 'pass')
         cp.remove_option(url, 'passx')
@@ -836,8 +863,8 @@ def get_config(override_conffile=None,
     aliases = {}
     for url in [x for x in cp.sections() if x != 'general']:
         # backward compatiblity
-        scheme, host = parse_apisrv_url(config.get('scheme', 'https'), url)
-        apiurl = urljoin(scheme, host)
+        scheme, host, path = parse_apisrv_url(config.get('scheme', 'https'), url)
+        apiurl = urljoin(scheme, host, path)
         user = None
         password = None
         if config['use_keyring'] and GENERIC_KEYRING:
@@ -851,7 +878,7 @@ def get_config(override_conffile=None,
         elif config['gnome_keyring'] and GNOME_KEYRING:
             # Read from gnome keyring if available
             try:
-                gk_data = gnomekeyring.find_network_password_sync(protocol=scheme, server=host)
+                gk_data = gnomekeyring.find_network_password_sync(protocol=scheme, server=host, object=path)
                 if not 'user' in gk_data[0]:
                     raise oscerr.ConfigError('no user found in keyring', conffile)
                 user = gk_data[0]['user']
@@ -998,7 +1025,7 @@ def get_config(override_conffile=None,
         raise e
 
     # finally, initialize urllib2 for to use the credentials for Basic Authentication
-    init_basicauth(config)
+    init_basicauth(config, os.stat(conffile).st_mtime)
 
 
 # vim: sw=4 et

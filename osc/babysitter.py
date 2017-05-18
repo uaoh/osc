@@ -78,7 +78,7 @@ def run(prg, argv=None):
         return 1
     except KeyboardInterrupt:
         print('interrupted!', file=sys.stderr)
-        return 1
+        return 130
     except oscerr.UserAbort:
         print('aborted.', file=sys.stderr)
         return 1
@@ -122,6 +122,7 @@ def run(prg, argv=None):
             if '<summary>' in body:
                 msg = body.split('<summary>')[1]
                 msg = msg.split('</summary>')[0]
+                msg = msg.replace('&lt;', '<').replace('&gt;' , '>').replace('&amp;', '&')
                 print(msg, file=sys.stderr)
         if e.code >= 500 and e.code <= 599:
             print('\nRequest: %s' % e.filename)
@@ -142,7 +143,7 @@ def run(prg, argv=None):
         print('Failed to reach a server:\n', e.reason, file=sys.stderr)
         return 1
     except URLGrabError as e:
-        print('Failed to grab %s: %s' % (e.url, e.exception), file=sys.stderr)
+        print('Failed to grab %s: %s' % (e.url, e.strerror), file=sys.stderr)
         return 1
     except IOError as e:
         # ignore broken pipe

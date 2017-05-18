@@ -68,6 +68,9 @@ class WrongOptions(OscBaseError):
 class NoWorkingCopy(OscBaseError):
     """Exception raised when directory is neither a project dir nor a package dir"""
 
+class NotMissing(OscBaseError):
+    """Exception raised when link target should not exist, but it does"""
+
 class WorkingCopyWrongVersion(OscBaseError):
     """Exception raised when working copy's .osc/_osclib_version doesn't match"""
 
@@ -112,10 +115,10 @@ class PackageNotInstalled(OscBaseError):
     Exception raised when a package is not installed on local system
     """
     def __init__(self, pkg):
-        OscBaseError.__init__(self, pkg)
+        OscBaseError.__init__(self, (pkg,))
 
     def __str__(self):
-        return 'Package %s is required for this operation' % ''.join(self.args)
+        return 'Package %s is required for this operation' % self.args
 
 class SignalInterrupt(Exception):
     """Exception raised on SIGTERM and SIGHUP."""

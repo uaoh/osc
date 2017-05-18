@@ -1,3 +1,75 @@
+0.158
+  - cat/less/blame command: default to expand to stay in sync with checkout
+  - add support for highly experimental native appimage.yml support
+
+0.157.2
+  - add compat code for older apis that do not support multibuild
+  - fix ssl.connection instantiation in case of old M2Crypto
+  - highly experimental support for appimage
+  - fix local service run for non-existent (server-side) package
+
+0.157
+  - add unpublish command (requires OBS 2.8)
+  - add blame command (requires OBS 2.9)
+  - results: show multibuild results by default
+  - getbinaries: make .AppImage files executable
+  - support operation in checked out package for cat/less/blame
+  - add comment command
+  - improved build recipe selection
+  - added multibuild (-M) to commands:
+          buildlog, remotebuildlog, buildinfo, build, buildhistory, jobhistory,
+          rebuild, restartbuild/abortbuild, wipebinaries, getbinaries
+  - add checkconstraints command
+  - add workerinfo command
+  - fix local build of kiwi images using obsrepositories://
+
+0.156
+  - highlight scheduled jobs with dispatch problems (due to constraints)
+  - allow to specify a log message in lock command
+  - Add '--wipe' option to osc chroot for deleting buildroots
+  - Add '--vm-memory' option to osc build
+  - add --multibuild to results command for showing all packages
+    of a multibuild config
+  - add --multibuild-package option to results command for showing
+    only one package of the multibuild config
+
+0.155
+  - osc service runall: runs all service local, independend of the mode
+                        This allows to create local files even when disabled or
+                        just created at buildtime
+  - support snapcraft.yaml build descriptions
+  - "osc add" of a directory offers to create an archive for uploading it
+  - support usage or preinstall images in local builds
+  - revision control options for "meta prj"
+  - bugfixes and documentation updates
+
+0.154
+  - switch to new obs_scm service when adding git URL's
+  - set OSC_VERSION environment for source services
+    (allows to work in local git checkouts when using obs_scm)
+
+0.153
+  - "my sr" is using the server side request collection to get right results
+  - maintenance request offers to supersede old, but still open requests
+  - add build --vm-telnet option for getting debug shell in KVM builds
+  - add buildhistory --limit option
+  OBS 2.7 only:
+  - add "addchannels" and "enablechannel" commands
+  - support new package instances on branching when using -N parameter
+  - add --linkrev option to branch command
+  - add --add-repository-block option to branch command
+  - add --add-repository-rebuild option to branch command
+  - add service merge command
+  - add service wait command
+
+0.152
+  - add support searching for groups via "group:" prefix
+  - show possible used incident projects on "maintained" command
+  OBS 2.7 only:
+  - support buildtime source services
+  - support maintenance_incident requests with acceptinfo data
+  - support maintenance_release requests with acceptinfo data
+
 0.151
   - fixed shell command injection via crafted _service files (CVE-2015-0778)
   - fix times when data comes from OBS backend

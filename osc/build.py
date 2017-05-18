@@ -33,6 +33,11 @@ except ImportError:
 
 from .conf import config, cookiejar
 
+try:
+    from .meter import TextMeter
+except:
+    TextMeter = None
+
 change_personality = {
             'i686':  'linux32',
             'i586':  'linux32',
@@ -66,7 +71,7 @@ can_also_build = {
              'armv5tel': [                                        'armv4l', 'armv5el',                                 'armv5tel' ],
              's390x':  ['s390' ],
              'ppc64':  [                        'ppc', 'ppc64', 'ppc64p7', 'ppc64le' ],
-             'ppc64le': [ 'ppc64le' ],
+             'ppc64le': [ 'ppc64le', 'ppc64' ],
              'i586':   [                'i386' ],
              'i686':   [        'i586', 'i386' ],
              'x86_64': ['i686', 'i586', 'i386' ],
@@ -100,7 +105,12 @@ class Buildinfo:
         if root.find('error') != None:
             sys.stderr.write('buildinfo is broken... it says:\n')
             error = root.find('error').text
-            sys.stderr.write(error + '\n')
+            if error.startswith('unresolvable: '):
+                sys.stderr.write('unresolvable: ')
+                sys.stderr.write('\n     '.join(error[14:].split(',')))
+            else:
+                sys.stderr.write(error)
+            sys.stderr.write('\n')
             sys.exit(1)
 
         if not (apiurl.startswith('https://') or apiurl.startswith('http://')):
@@ -112,11 +122,15 @@ class Buildinfo:
         # are we building .rpm or .deb?
         # XXX: shouldn't we deliver the type via the buildinfo?
         self.pacsuffix = 'rpm'
-        if self.buildtype == 'dsc':
+        if self.buildtype == 'dsc' or self.buildtype == 'collax':
             self.pacsuffix = 'deb'
         if self.buildtype == 'arch':
             self.pacsuffix = 'arch'
         if self.buildtype == 'livebuild':
+            self.pacsuffix = 'deb'
+        if self.buildtype == 'snapcraft':
+            # atm ubuntu is used as base, but we need to be more clever when 
+            # snapcraft also supports rpm
             self.pacsuffix = 'deb'
 
         self.buildarch = root.find('arch').text
@@ -156,6 +170,11 @@ class Buildinfo:
         self.runscripts_list = [ dep.name for dep in self.deps if dep.runscripts ]
         self.noinstall_list = [ dep.name for dep in self.deps if dep.noinstall ]
         self.installonly_list = [ dep.name for dep in self.deps if dep.installonly ]
+
+        if root.find('preinstallimage') != None:
+            self.preinstallimage = root.find('preinstallimage')
+        else:
+            self.preinstallimage = None
 
 
     def has_dep(self, name):
@@ -213,13 +232,15 @@ class Pac:
         self.mp['apiurl'] = apiurl
 
         if pacsuffix == 'deb':
-            filename = debquery.DebQuery.filename(self.mp['name'], self.mp['epoch'], self.mp['version'], self.mp['release'], self.mp['arch'])
+            canonname = debquery.DebQuery.filename(self.mp['name'], self.mp['epoch'], self.mp['version'], self.mp['release'], self.mp['arch'])
         elif pacsuffix == 'arch':
-            filename = archquery.ArchQuery.filename(self.mp['name'], self.mp['epoch'], self.mp['version'], self.mp['release'], self.mp['arch'])
+            canonname = archquery.ArchQuery.filename(self.mp['name'], self.mp['epoch'], self.mp['version'], self.mp['release'], self.mp['arch'])
         else:
-            filename = rpmquery.RpmQuery.filename(self.mp['name'], self.mp['epoch'], self.mp['version'], self.mp['release'], self.mp['arch'])
+            canonname = rpmquery.RpmQuery.filename(self.mp['name'], self.mp['epoch'], self.mp['version'], self.mp['release'], self.mp['arch'])
 
-        self.mp['filename'] = node.get('binary') or filename
+        self.mp['canonname'] = canonname
+        # maybe we should rename filename key to binary
+        self.mp['filename'] = node.get('binary') or canonname
         if self.mp['repopackage'] == '_repository':
             self.mp['repofilename'] = self.mp['name']
         else:
@@ -240,7 +261,7 @@ class Pac:
         # or if-modified-since, so the caching is simply name-based (on the assumption
         # that the filename is suitable as identifier)
         self.localdir = '%s/%s/%s/%s' % (cachedir, self.project, self.repository, self.arch)
-        self.fullfilename = os.path.join(self.localdir, self.filename)
+        self.fullfilename = os.path.join(self.localdir, self.canonname)
         self.url_local = 'file://%s' % self.fullfilename
 
         # first, add the local URL
@@ -257,6 +278,57 @@ class Pac:
         return "%s" % self.name
 
 
+def get_preinstall_image(apiurl, arch, cache_dir, img_info):
+    """
+    Searches preinstall image according to build info and downloads it to cache.
+    Returns preinstall image path, source and list of image binaries, which can
+    be used to create rpmlist.
+    NOTE: preinstall image can be used only for new build roots!
+    """
+    imagefile = ''
+    imagesource = ''
+    img_bins = []
+    for bin in img_info.findall('binary'):
+        img_bins.append(bin.text)
+
+    img_project = img_info.get('project')
+    img_repository = img_info.get('repository')
+    img_arch = arch
+    img_pkg = img_info.get('package')
+    img_file = img_info.get('filename')
+    img_hdrmd5 = img_info.get('hdrmd5')
+    if not img_hdrmd5:
+        img_hdrmd5 = img_file
+    cache_path = '%s/%s/%s/%s' % (cache_dir, img_project, img_repository, img_arch)
+    ifile_path = '%s/%s' % (cache_path, img_file)
+    ifile_path_part = '%s.part' % ifile_path
+
+    imagefile = ifile_path
+    imagesource = "%s/%s/%s [%s]" % (img_project, img_repository, img_pkg, img_hdrmd5)
+
+    if not os.path.exists(ifile_path):
+        url = "%s/build/%s/%s/%s/%s/%s" % (apiurl, img_project, img_repository, img_arch, img_pkg, img_file)
+        print("downloading preinstall image %s" % imagesource)
+        if not os.path.exists(cache_path):
+            try:
+                os.makedirs(cache_path, mode=0o755)
+            except OSError as e:
+                print('packagecachedir is not writable for you?', file=sys.stderr)
+                print(e, file=sys.stderr)
+                sys.exit(1)
+        if sys.stdout.isatty() and TextMeter:
+            progress_obj = TextMeter(fo=sys.stdout)
+        else:
+            progress_obj = None
+        gr = OscFileGrabber(progress_obj=progress_obj)
+        try:
+            gr.urlgrab(url, filename=ifile_path_part, text='fetching image')
+        except URLGrabError as e:
+            print("Failed to download! ecode:%i errno:%i" % (e.code, e.errno))
+            return ('', '', [])
+        # download ok, rename partial file to final file name
+        os.rename(ifile_path_part, ifile_path)
+    return (imagefile, imagesource, img_bins)
 
 def get_built_files(pacdir, buildtype):
     if buildtype == 'spec':
@@ -271,7 +343,7 @@ def get_built_files(pacdir, buildtype):
                                     '-type', 'f'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
         s_built = ''
-    elif buildtype == 'dsc':
+    elif buildtype == 'dsc' or buildtype == 'collax':
         b_built = subprocess.Popen(['find', os.path.join(pacdir, 'DEBS'),
                                     '-name', '*.deb'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
@@ -286,6 +358,16 @@ def get_built_files(pacdir, buildtype):
     elif buildtype == 'livebuild':
         b_built = subprocess.Popen(['find', os.path.join(pacdir, 'OTHER'),
                                     '-name', '*.iso*'],
+                                   stdout=subprocess.PIPE).stdout.read().strip()
+        s_built = ''
+    elif buildtype == 'snapcraft':
+        b_built = subprocess.Popen(['find', os.path.join(pacdir, 'OTHER'),
+                                    '-name', '*.snap'],
+                                   stdout=subprocess.PIPE).stdout.read().strip()
+        s_built = ''
+    elif buildtype == 'appimage':
+        b_built = subprocess.Popen(['find', os.path.join(pacdir, 'OTHER'),
+                                    '-name', '*.AppImage'],
                                    stdout=subprocess.PIPE).stdout.read().strip()
         s_built = ''
     else:
@@ -326,7 +408,7 @@ def get_prefer_pkgs(dirs, wanted_arch, type, cpio):
     repositories = []
 
     suffix = '*.rpm'
-    if type == 'dsc':
+    if type == 'dsc' or type == 'collax' or type == 'livebuild':
         suffix = '*.deb'
     elif type == 'arch':
         suffix = '*.pkg.tar.xz'
@@ -351,8 +433,6 @@ def get_prefer_pkgs(dirs, wanted_arch, type, cpio):
         if path.endswith('.src.rpm') or path.endswith('.nosrc.rpm'):
             continue
         if path.endswith('.patch.rpm') or path.endswith('.delta.rpm'):
-            continue
-        if path.find('-debuginfo-') > 0:
             continue
         packageQuery = packagequery.PackageQuery.query(path)
         packageQueries.add(packageQuery)
@@ -418,15 +498,23 @@ def main(apiurl, opts, argv):
     build_root = None
     cache_dir  = None
     build_uid = ''
+    vm_memory = config['build-memory']
     vm_type = config['build-type']
+    vm_telnet = None
 
     build_descr = os.path.abspath(build_descr)
     build_type = os.path.splitext(build_descr)[1][1:]
     if os.path.basename(build_descr) == 'PKGBUILD':
         build_type = 'arch'
-    if build_type not in ['spec', 'dsc', 'kiwi', 'arch', 'livebuild']:
+    if os.path.basename(build_descr) == 'build.collax':
+        build_type = 'collax'
+    if os.path.basename(build_descr) == 'appimage.yml':
+        build_type = 'appimage'
+    if os.path.basename(build_descr) == 'snapcraft.yaml':
+        build_type = 'snapcraft'
+    if build_type not in ['spec', 'dsc', 'kiwi', 'arch', 'collax', 'livebuild', 'snapcraft', 'appimage']:
         raise oscerr.WrongArgs(
-                'Unknown build type: \'%s\'. Build description should end in .spec, .dsc, .kiwi or .livebuild.' \
+                'Unknown build type: \'%s\'. Build description should end in .spec, .dsc, .kiwi, or .livebuild. Or being named PKGBUILD, build.collax, appimage.yml or snapcraft.yaml' \
                         % build_type)
     if not os.path.isfile(build_descr):
         raise oscerr.WrongArgs('Error: build description file named \'%s\' does not exist.' % build_descr)
@@ -452,6 +540,8 @@ def main(apiurl, opts, argv):
         build_root = opts.root
     if opts.target:
         buildargs.append('--target=%s' % opts.target)
+    if opts.threads:
+        buildargs.append('--threads=%s' % opts.threads)
     if opts.jobs:
         buildargs.append('--jobs=%s' % opts.jobs)
     elif config['build-jobs'] > 1:
@@ -497,8 +587,12 @@ def main(apiurl, opts, argv):
         else:
             print('Error: build-uid arg must be 2 colon separated numerics: "uid:gid" or "caller"', file=sys.stderr)
             return 1
+    if opts.vm_memory:
+        vm_memory = opts.vm_memory
     if opts.vm_type:
         vm_type = opts.vm_type
+    if opts.vm_telnet:
+        vm_telnet = opts.vm_telnet
     if opts.alternative_project:
         prj = opts.alternative_project
         pac = '_repository'
@@ -530,7 +624,7 @@ def main(apiurl, opts, argv):
             except oscerr.NoWorkingCopy:
                 opts.local_package = True
         if opts.local_package:
-            pacname = os.path.splitext(build_descr)[0]
+            pacname = os.path.splitext(os.path.basename(build_descr))[0]
     apihost = urlsplit(apiurl)[1]
     if not build_root:
         build_root = config['build-root']
@@ -575,13 +669,21 @@ def main(apiurl, opts, argv):
         build_descr_data = s + build_descr_data
 
     cpiodata = None
+    servicefile = os.path.join(os.path.dirname(build_descr), "_service")
+    if not os.path.isfile(servicefile):
+        servicefile = os.path.join(os.path.dirname(build_descr), "_service")
+        if not os.path.isfile(servicefile):
+            servicefile = None
+        else:
+            print('Using local _service file')
     buildenvfile = os.path.join(os.path.dirname(build_descr), "_buildenv." + repo + "." + arch)
     if not os.path.isfile(buildenvfile):
         buildenvfile = os.path.join(os.path.dirname(build_descr), "_buildenv")
         if not os.path.isfile(buildenvfile):
             buildenvfile = None
-    if buildenvfile:
-        print('Using buildenv file: %s' % os.path.basename(buildenvfile))
+        else:
+            print('Using local buildenv file: %s' % os.path.basename(buildenvfile))
+    if buildenvfile or servicefile:
         from .util import cpio
         if not cpiodata:
             cpiodata = cpio.CpioWrite()
@@ -598,6 +700,8 @@ def main(apiurl, opts, argv):
         # buildenv must come last for compatibility reasons...
         if buildenvfile:
             cpiodata.add("buildenv", open(buildenvfile).read())
+        if servicefile:
+            cpiodata.add("_service", open(servicefile).read())
         build_descr_data = cpiodata.get()
 
     # special handling for overlay and rsync-src/dest
@@ -686,10 +790,10 @@ def main(apiurl, opts, argv):
                 if pkg_meta_e:
                     print('ERROR: Either wrong repo/arch as parameter or a parse error of .spec/.dsc/.kiwi file due to syntax error', file=sys.stderr)
                 else:
-                    print('The package \'%s\' does not exists - please ' \
+                    print('The package \'%s\' does not exist - please ' \
                                         'rerun with \'--local-package\'' % pac, file=sys.stderr)
             else:
-                print('The project \'%s\' does not exists - please ' \
+                print('The project \'%s\' does not exist - please ' \
                                     'rerun with \'--alternative-project <alternative_project>\'' % prj, file=sys.stderr)
             sys.exit(1)
         else:
@@ -761,8 +865,24 @@ def main(apiurl, opts, argv):
                       enable_cpio = not opts.disable_cpio_bulk_download,
                       cookiejar=cookiejar)
 
-    # implicitly trust the project we are building for
-    check_trusted_projects(apiurl, [ i for i in bi.projects.keys() if not i == prj ])
+    if not opts.trust_all_projects:
+        # implicitly trust the project we are building for
+        check_trusted_projects(apiurl, [ i for i in bi.projects.keys() if not i == prj ])
+
+    imagefile = ''
+    imagesource = ''
+    imagebins = []
+    if (not config['no_preinstallimage'] and not opts.nopreinstallimage and
+        bi.preinstallimage and
+        not opts.noinit and not opts.offline and
+        (opts.clean or (not os.path.exists(build_root + "/installed-pkg") and
+                        not os.path.exists(build_root + "/.build/init_buildsystem.data")))):
+        (imagefile, imagesource, imagebins) = get_preinstall_image(apiurl, arch, cache_dir, bi.preinstallimage)
+        if imagefile:
+            # remove binaries from build deps which are included in preinstall image
+            for i in bi.deps:
+                if i.name in imagebins:
+                    bi.remove_dep(i.name)
 
     # now update the package cache
     fetcher.run(bi)
@@ -904,7 +1024,7 @@ def main(apiurl, opts, argv):
                       buildargs.append('--kiwi-parameter')
                       buildargs.append('--add-repo')
                       buildargs.append('--kiwi-parameter')
-                      buildargs.append("repos/"+path)
+                      buildargs.append("dir://./repos/"+path)
                       buildargs.append('--kiwi-parameter')
                       buildargs.append('--add-repotype')
                       buildargs.append('--kiwi-parameter')
@@ -922,7 +1042,7 @@ def main(apiurl, opts, argv):
                    buildargs.append('--kiwi-parameter')
                    buildargs.append('--add-repo')
                    buildargs.append('--kiwi-parameter')
-                   buildargs.append("repos/"+project+"/"+repo)
+                   buildargs.append("dir://./repos/"+project+"/"+repo)
                    buildargs.append('--kiwi-parameter')
                    buildargs.append('--add-repotype')
                    buildargs.append('--kiwi-parameter')
@@ -964,7 +1084,14 @@ def main(apiurl, opts, argv):
         rpmlist = [ '%s %s\n' % (i.name, i.fullfilename) for i in bi.deps if not i.noinstall ]
     else:
         rpmlist = [ '%s %s\n' % (i.name, i.fullfilename) for i in bi.deps ]
+    for i in imagebins:
+        rpmlist.append('%s preinstallimage\n' % i)
     rpmlist += [ '%s %s\n' % (i[0], i[1]) for i in rpmlist_prefers ]
+
+    if imagefile:
+        rpmlist.append('preinstallimage: %s\n' % imagefile)
+    if imagesource:
+        rpmlist.append('preinstallimagesource: %s\n' % imagesource)
 
     rpmlist.append('preinstall: ' + ' '.join(bi.preinstall_list) + '\n')
     rpmlist.append('vminstall: ' + ' '.join(bi.vminstall_list) + '\n')
@@ -1000,7 +1127,11 @@ def main(apiurl, opts, argv):
             my_build_swap = build_root + '/swap'
 
         vm_options = [ '--vm-type=%s' % vm_type ]
-        if vm_type != 'lxc' and vm_type != 'emulator':
+        if vm_telnet:
+            vm_options += [ '--vm-telnet=' + vm_telnet ]
+        if vm_memory:
+            vm_options += [ '--memory=' + vm_memory ]
+        if vm_type != 'lxc':
             vm_options += [ '--vm-disk=' + my_build_device ]
             vm_options += [ '--vm-swap=' + my_build_swap ]
             vm_options += [ '--logfile=%s/.build.log' % build_root ]
@@ -1015,14 +1146,14 @@ def main(apiurl, opts, argv):
 
             build_root += '/.mount'
 
-        if config['build-memory']:
-            vm_options += [ '--memory=' + config['build-memory'] ]
         if config['build-vmdisk-rootsize']:
             vm_options += [ '--vmdisk-rootsize=' + config['build-vmdisk-rootsize'] ]
         if config['build-vmdisk-swapsize']:
             vm_options += [ '--vmdisk-swapsize=' + config['build-vmdisk-swapsize'] ]
         if config['build-vmdisk-filesystem']:
             vm_options += [ '--vmdisk-filesystem=' + config['build-vmdisk-filesystem'] ]
+        if config['build-vm-user']:
+            vm_options += [ '--vm-user=' + config['build-vm-user'] ]
 
 
     if opts.preload:
