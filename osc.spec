@@ -11,7 +11,7 @@ Name:       osc
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 Summary:    OpenSUSE Build Service Commander
 Version:    0.146.0
-Release:    1
+Release:    2
 Group:      Development/Tools/Other
 License:    GPL v2 or later
 BuildArch:  noarch
