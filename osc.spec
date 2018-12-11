@@ -92,9 +92,13 @@ install -m 0755 dist/osc.complete %{buildroot}%{_prefix}/lib/osc/complete
 mkdir -p %{buildroot}%{_prefix}/%{_lib}/osc
 install -m 0755 dist/osc.complete %{buildroot}%{_prefix}/%{_lib}/osc/complete
 %endif
-
-
 # << install post
+
+%check
+(
+    cd tests
+    python suite.py
+)
 
 %files
 %defattr(-,root,root,-)
