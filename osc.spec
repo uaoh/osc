@@ -33,6 +33,7 @@ Requires:   /usr/bin/diff3
 BuildRequires:  python-devel
 BuildRequires:  python-urlgrabber
 BuildRequires:  m2crypto
+BuildRequires:  diffstat
 
 %description
 Commandline client for the openSUSE Build Service.
@@ -92,9 +93,13 @@ install -m 0755 dist/osc.complete %{buildroot}%{_prefix}/lib/osc/complete
 mkdir -p %{buildroot}%{_prefix}/%{_lib}/osc
 install -m 0755 dist/osc.complete %{buildroot}%{_prefix}/%{_lib}/osc/complete
 %endif
-
-
 # << install post
+
+%check
+(
+    cd tests
+    python suite.py
+)
 
 %files
 %defattr(-,root,root,-)
