@@ -33,6 +33,7 @@ Requires:   /usr/bin/diff3
 BuildRequires:  python-devel
 BuildRequires:  python-urlgrabber
 BuildRequires:  m2crypto
+BuildRequires:  diffstat
 
 %description
 Commandline client for the openSUSE Build Service.
